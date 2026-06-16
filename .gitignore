@@ -1,0 +1,38 @@
+# Claude Code's per-session machine-specific permissions allowlist —
+# contains absolute Windows paths; should not be shared across environments.
+.claude/
+
+# Stray test files
+.writetest
+
+# Per user direction (2026-06-16): DEPLOY.md is from a different session and is
+# kept in the local workspace as historical reference only. It is NOT shipped
+# to the agent-owned repo. The authoritative deployment doc is
+# DEPLOYMENT-RUNBOOK.md (which calls out the bugs in DEPLOY.md in its §1).
+DEPLOY.md
+
+# LTW-era artefacts from the failed first attempt. CTW (the chosen path)
+# uses neither aop.xml nor setenv. These files are kept locally only for
+# archaeological reference. See DEPLOYMENT-RUNBOOK.md §1 hard constraints.
+META-INF/
+setenv-snippet.sh
+
+# Operator-side backup artefacts emitted by patches/apply-testrun-filter.ps1
+# and patches/rollback-testrun-filter.ps1 when run against a live CB install.
+*.preRollback-*.bak
+*.preSpike-*.bak
+*.prePhilips-*.bak
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# Build / IDE detritus (defensive — none of this should be inside this folder, but
+# safe against accidental commits if the workspace is opened in an IDE)
+.idea/
+.vscode/
+target/
+build/
+out/
