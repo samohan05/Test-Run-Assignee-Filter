@@ -11,11 +11,11 @@
 
 ## 0. TL;DR — the 60-second view
 
-1. **Build:** one-shot `ajc 1.9.22` invocation that compiles `AssignedRunFilterAspect.java` AND binary-weaves it into a single-class inpath containing only `TestRunnerEngine.class`. Output: 3 `.class` files in `target/woven-out/` (engine, `$AjcClosure1`, aspect). Gate: build log must contain the `Join point ... advised by around advice from AssignedRunFilterAspect` weave-info line, AND `javap -p AssignedRunFilterAspect.class` must show `aspectOf()`.
+1. **Build:** one-shot `ajc 1.9.22` invocation that compiles `AssignedRunFilterAspect.java` AND binary-weaves it into a single-class inpath containing only `TestRunnerEngine.class`. Output (v2.1): **2** `.class` files in `target/woven-out/` (engine + aspect) — the v2.1 advice has no lambda, so ajc **inlines** `proceed()` and produces **no** `$AjcClosure1`. (v1.0/v2.0 emitted a 3rd closure class; the rule is "deploy every `.class` the build emits.") Gate: build log must contain the `Join point ... advised by around advice from AssignedRunFilterAspect` weave-info line, AND `javap -p AssignedRunFilterAspect.class` must show `aspectOf()`.
 2. **Deploy:** `.\patches\apply-testrun-filter.ps1`. Service must be stopped (`net stop codebeamer`) first; script's pre-flight refuses otherwise.
-3. **Enable:** add `-Dphilips.testrun.assigneeFilter=true` to the procrun service JVM options. The aspect defaults to OFF — class drop alone changes no behaviour.
+3. **No enable step (Option B):** the filter is active as soon as the class files (v2.1: two — engine + aspect) are deployed and the service restarts. There is **no JVM property and no config switch** — see §5.4.
 4. **Start:** `net start codebeamer`. Smoke per §Post-restart-smoke. Two-user functional matrix per `DEPLOY.md §6b`.
-5. **Rollback:** `.\patches\rollback-testrun-filter.ps1`. Deletes the three shadow classes, JVM resolves stock `TestRunnerEngine` from `cb-3.0.0.5.jar`.
+5. **Rollback / disable:** delete the three shadow classes and restart; the JVM resolves stock `TestRunnerEngine` from `cb-3.0.0.5.jar`. (Disable == rollback — there is no separate off-switch.)
 
 ---
 
@@ -40,7 +40,7 @@ Before triggering deployment, confirm ALL of the following. Each blocker must cl
 | 1 | `cb-3.0.0.5.jar` SHA-256 matches `patches/source-hashes.txt` (`ee1db7af…`). If mismatch → Codebeamer has been patched; trigger §Upgrade-SOP, do NOT proceed. | deployment-engineer |
 | 2 | Stock `TestRunnerEngine.class` SHA-256 matches the pin in `ADR-0003` (`171dbe5a…`). | deployment-engineer |
 | 3 | `aspectjweaver-1.9.7.jar` is at `tomcat/webapps/cb/WEB-INF/lib/` AND unchanged (do **not** replace it — see `ADR-0004`). | deployment-engineer |
-| 4 | The three woven `.class` files exist at `patches/woven/...` and their SHA-256s match the architect's record in `ADR-0003 §Register Entry #1`. | senior-developer |
+| 4 | The woven `.class` files exist at `patches/woven/...` (v2.1: **two** — engine + aspect; no `$AjcClosure1`) and their SHA-256s match `ADR-0003 §Register Entry #1`. Rule: deploy **every** `.class` the build emits. | senior-developer |
 | 5 | `patches/expected-post-apply-hashes.txt` is in its stub form (or carries hashes from a prior successful apply that you intend to overwrite). | deployment-engineer |
 | 6 | No other customization currently shadows `com.intland.codebeamer.manager.testmanagement.TestRunnerEngine`. Check `tomcat/webapps/cb/WEB-INF/classes/com/intland/codebeamer/manager/testmanagement/` for pre-existing files — see `ADR-0003 §Consequences/Risks` ("Multiple forks of the same vendor class…"). | architect |
 | 7 | The codebeamer Windows service is stopped (`Get-Service codebeamer` → Status `Stopped`) OR you accept the `-IgnoreService` deferred-takeover model. | deployment-engineer |
@@ -133,7 +133,7 @@ If either grep returns empty → **STOP. Do not deploy an unwoven class.**
 
 ### 4.4 Capture artefact hashes
 
-The three woven `.class` files are the deployable bundle.
+The woven `.class` files are the deployable bundle (v2.1: **two** — engine + aspect; no `$AjcClosure1`, because the v2.1 advice is inlined).
 
 ```bash
 find target/woven-out -name "*.class" -type f | sort | while read f; do
@@ -150,9 +150,8 @@ Compare against `docs/adr/0003-forked-core-class-register.md` §Register Entry #
 CANONICAL="C:/Users/samohan/Learning/Customization/Codebeamer_Customizations/3_0_0_5/Philips_Customizations/test_run_assignee_filter"
 mkdir -p "$CANONICAL/patches/woven/com/intland/codebeamer/manager/testmanagement"
 mkdir -p "$CANONICAL/patches/woven/com/philips/cb/testrun"
+# v2.1 emits 2 classes. If a future build also emits TestRunnerEngine$AjcClosure1.class, copy it too.
 cp "target/woven-out/com/intland/codebeamer/manager/testmanagement/TestRunnerEngine.class" \
-   "$CANONICAL/patches/woven/com/intland/codebeamer/manager/testmanagement/"
-cp 'target/woven-out/com/intland/codebeamer/manager/testmanagement/TestRunnerEngine$AjcClosure1.class' \
    "$CANONICAL/patches/woven/com/intland/codebeamer/manager/testmanagement/"
 cp "target/woven-out/com/philips/cb/testrun/AssignedRunFilterAspect.class" \
    "$CANONICAL/patches/woven/com/philips/cb/testrun/"
@@ -200,26 +199,19 @@ See §Service-control for shutdown timing and file-handle release behaviour.
 
 Expected: exit code `0` and a "Philips per-assignee test-runner filter applied successfully" success banner. The script prints the rollback one-liner on success.
 
-### 5.4 Enable the filter
+### 5.4 Activation model (v2.0 / Option B — no switch)
 
-The deployed aspect is **disabled by default** (`SYSTEM_PROPERTY_DEFAULT = false` in source; see `AssignedRunFilterAspect.java`). The class-drop alone does NOT activate the filter — this is deliberate per the aspect's class Javadoc, so a fresh deploy can be smoke-tested for structural cleanliness BEFORE any behaviour change.
+There is **no enable step and no JVM property.** The filter is active the moment the woven class files (v2.1: **two** — engine + aspect) are present and the service restarts. Turning it **off** = remove them (§Rollback) and restart.
 
-To activate, use the agent-owned helper from an **elevated** PowerShell session (writing to HKLM requires admin):
+**Rationale (why the JVM-property switch was removed in v2.0):** CTW class-shadowing replaces `TestRunnerEngine` for the *whole webapp*, so any on/off switch — JVM property or config file — would be application-wide anyway, functionally identical to deploying vs. removing the class files. The earlier v1.0 design used a `-Dphilips.testrun.assigneeFilter` JVM property; it was removed because editing the procrun JVM options is error-prone — a wrong overwrite (single `--JvmOptions` instead of append `++JvmOptions`, or a manual registry edit) **wipes Codebeamer's required `--add-opens` flags**, which breaks reflection-based pages (project admin) and SSO. Option B eliminates that entire failure mode: deployment never touches JVM options.
 
-```powershell
-.\patches\enable-testrun-filter.ps1
-```
+> **The `enable-testrun-filter.ps1` / `disable-testrun-filter.ps1` scripts are RETIRED** as of v2.0 (they edited JVM options — the exact step we removed). They are no longer shipped.
 
-The script:
-- Edits `HKLM:\SOFTWARE\WOW6432Node\Apache Software Foundation\Procrun 2.0\codebeamer\Parameters\Java\Options` (the procrun service's `REG_MULTI_SZ` JVM-arg array)
-- Removes any existing `-Dphilips.testrun.assigneeFilter=…` line (with any value) and appends the canonical `=true`
-- Is idempotent — re-runs are no-ops
-- Prints the before/after Options array and the verification command
-- Does NOT touch the customer-supplied `cbservice.bat` (which uses `--JvmOptions` overwrite-mode and would clobber our entry if re-run)
+> **Change-control note:** because deploy == enable, validation/sign-off must happen BEFORE the class files are placed in production. There is no "deploy dormant, enable later."
 
-> **Caveat:** if anyone ever re-runs `cbservice.bat` later (e.g., during a CB upgrade reinstall), it uses `--JvmOptions "<long-string>"` (overwrite) and our enable-line is wiped. Re-run `enable-testrun-filter.ps1` after any `cbservice.bat` invocation. The upgrade SOP in §9 is the canonical sequence.
+> **Per-project (future):** deployment is global. If per-business-unit enablement is ever required (e.g. enable for CT projects, not Ultrasound), it is added as a **project-allowlist check inside the aspect** (see `AssignedRunFilterAspect` Javadoc, "Future: per-project scoping") — not via deployment. At that point a config file under `custom/` carries a scope list (which projects), not a redundant global on/off.
 
-Once the registry change is in place, restart the service for the change to load:
+Restart the service so the woven classes load:
 
 ```powershell
 net stop codebeamer
@@ -287,12 +279,12 @@ Get-Content 'C:\Codebeamer\CB-3.0.0.5\tomcat\logs\cb.txt' -Tail 300 |
 
 **GREEN signals (must be present):**
 - `Server startup in NNNN ms` (cb webapp loaded successfully)
-- A line from `AssignedRunFilterAspect` at INFO level: "AssignedRunFilterAspect loaded. Master switch philips.testrun.assigneeFilter=<...> (resolved enabled=<true|false>)" — this is the static-init log line that records the master-switch state. **If absent: the aspect class was not loaded.** Tomcat may be using the stock `TestRunnerEngine`; deployment did NOT take effect.
+- A line from `AssignedRunFilterAspect` at INFO level: `AssignedRunFilterAspect v2.1 loaded - per-assignee filtering is ACTIVE (matches direct-user AND role assignments; active whenever these woven classes are deployed).` — this is the static-init log line. **If absent: the aspect class was not loaded.** Tomcat may be using the stock `TestRunnerEngine`; deployment did NOT take effect.
 
 **RED signals (ANY one ⇒ STOP, follow §Rollback):**
 - `platform encoding not initialized` — the LTW failure mode. Should be impossible under CTW (no `-javaagent`). If seen, an LTW residue was missed; restore from `cb_testrun_backups`.
 - `NoSuchMethodError ... aspectOf` — the aspect class was compiled without `aspectOf()`. Re-build via §Build §4.2 (one-shot ajc).
-- `NoClassDefFoundError: ...TestRunnerEngine$AjcClosure1` — the closure class wasn't deployed. Verify all three class files copied.
+- `NoClassDefFoundError: ...TestRunnerEngine$AjcClosure1` — a woven engine that references a closure was deployed without it. **v2.1 produces no closure** (advice is inlined), so this should not occur; if it does, you deployed a v1.0/v2.0 engine without its `$AjcClosure1` — rebuild from the current source, or deploy every `.class` the build emits.
 - `LinkageError` or `VerifyError` mentioning `TestRunnerEngine` — runtime/tools AspectJ version skew bit us. Re-validate per `ADR-0004`.
 - `BeanCreationException ... PhilipsMergeModelEnricherAspect` — the Spring-AOP aspect is broken; the runtime weaver may have been accidentally altered. Verify `aspectjweaver-1.9.7.jar` is untouched.
 
@@ -331,7 +323,7 @@ findstr "AssignedRunFilterAspect.*ERROR\|Exception\|threw" C:\Codebeamer\CB-3.0.
 
 ### 8.2 Weekly health check
 
-- Confirm presence of at least one `AssignedRunFilterAspect loaded` INFO line per JVM start
+- Confirm presence of at least one `AssignedRunFilterAspect v2.1 loaded` INFO line per JVM start
 - Confirm at least one `filtering N -> M` line per business day (presence check — silent absence may indicate the JVM restarted without the customization loading)
 
 ### 8.3 Anomaly patterns
@@ -341,7 +333,7 @@ findstr "AssignedRunFilterAspect.*ERROR\|Exception\|threw" C:\Codebeamer\CB-3.0.
 | `AssignedRunFilterAspect: filter produced empty set from N>0 runs for user [...]` for the same user across multiple requests | That user is genuinely assigned to no cases in the parent run, OR a configuration error has assigned cases to the wrong user, OR the filter has a defect | Inspect the parent run's `assignedTo` lists for the affected cases against the user identity |
 | `AssignedRunFilterAspect: currentUser is null` recurring | Fail-open path is being hit; the runner is silently showing unfiltered data. The aspect is functioning safely, but the user-resolution path has a bug. | Capture the engine-instance hash from the log line; correlate with the request URL; reproduce in test env |
 | `AssignedRunFilterAspect: filter logic threw [...]` | Internal exception caught by fail-open wrapper. Original list returned; tester sees unfiltered data; no functional failure. | Investigate the stack trace in the same log entry; the most likely causes are null elements in `assignedTo` (already guarded) or session-state edge cases on `getDelegate()` |
-| Total absence of `AssignedRunFilterAspect` log lines for > 24h | The aspect class is not being loaded — either because the shadow files are missing, the JVM was restarted without picking them up, or a Codebeamer patch silently rolled them back | Run `Get-FileHash` on the three live class files vs `expected-post-apply-hashes.txt`; if mismatch, re-apply |
+| Total absence of `AssignedRunFilterAspect` log lines for > 24h | The aspect class is not being loaded — either because the shadow files are missing, the JVM was restarted without picking them up, or a Codebeamer patch silently rolled them back | Run `Get-FileHash` on the live class files (v2.1: two) vs `expected-post-apply-hashes.txt`; if mismatch, re-apply |
 
 ---
 
@@ -375,21 +367,11 @@ When PTC delivery receives a new `cb-3.0.0.5.x.jar` (e.g. `3.0.0.5.1`):
 
 ## 10. Rollback
 
-### 10.1 Soft-disable (no rollback, instant)
+### 10.1 Disable (Option B — there is no soft switch)
 
-The aspect's master switch is `-Dphilips.testrun.assigneeFilter`. To neutralise the filter without removing the shadow classes, use the agent-owned helper from an **elevated** PowerShell session:
+There is **no JVM property and no config toggle** (Option B — see §5.4). Because the woven classes shadow `TestRunnerEngine` for the *entire* webapp, the only way to turn the filter off is to **remove the shadow classes** — which is exactly the hard rollback in §10.2. "Disable" and "rollback" are therefore the same operation; the old `enable-/disable-testrun-filter.ps1` helpers were retired in v2.0.
 
-```powershell
-.\patches\disable-testrun-filter.ps1
-net stop codebeamer
-net start codebeamer
-```
-
-The script removes the `-Dphilips.testrun.assigneeFilter=…` line entirely from the procrun JVM Options array (returning the registry to its pre-enable state). It's idempotent — re-runs are no-ops. After restart, `isEnabled()` falls back to `SYSTEM_PROPERTY_DEFAULT = false` and the around-advice returns the unfiltered list immediately. **Zero runtime cost beyond one property read per call.**
-
-The shadow class files at `WEB-INF/classes/` remain deployed — the aspect is still woven into `TestRunnerEngine`, just behaviourally inactive. This is the correct rollback tier when the customer says "turn this off for now" but you want to leave the deploy in place for a fast re-enable later.
-
-To re-enable: `.\patches\enable-testrun-filter.ps1` + restart.
+If the customer says "turn this off for now," run §10.2 and restart: the webapp classloader resumes loading the stock `TestRunnerEngine` from `cb-3.0.0.5.jar`. To re-enable later, re-deploy the woven classes (§4–§5) and restart.
 
 ### 10.2 Hard rollback (remove shadow classes)
 
@@ -399,16 +381,15 @@ net stop codebeamer
 net start codebeamer
 ```
 
-The script takes optional `*.preRollback-<DATE>.bak` of the three class files before deleting them (skip with `-NoSafetyBackup`), verifies the target paths are empty after deletion, and resets `expected-post-apply-hashes.txt` to its stub. The webapp classloader resumes loading stock `TestRunnerEngine` from `cb-3.0.0.5.jar`.
+The script takes optional `*.preRollback-<DATE>.bak` of the woven class files (v2.1: **two** — engine + aspect) before deleting them (skip with `-NoSafetyBackup`), verifies the target paths are empty after deletion, and resets `expected-post-apply-hashes.txt` to its stub. The webapp classloader resumes loading stock `TestRunnerEngine` from `cb-3.0.0.5.jar`.
 
 ### 10.3 Catastrophic recovery (rollback script itself fails)
 
-The three shadow class paths are file-system paths under your control. If the rollback script fails for any reason:
+The shadow class paths (v2.1: **two**) are file-system paths under your control. If the rollback script fails for any reason:
 
 ```powershell
 Remove-Item -Force `
     'C:\Codebeamer\CB-3.0.0.5\tomcat\webapps\cb\WEB-INF\classes\com\intland\codebeamer\manager\testmanagement\TestRunnerEngine.class',
-    'C:\Codebeamer\CB-3.0.0.5\tomcat\webapps\cb\WEB-INF\classes\com\intland\codebeamer\manager\testmanagement\TestRunnerEngine$AjcClosure1.class',
     'C:\Codebeamer\CB-3.0.0.5\tomcat\webapps\cb\WEB-INF\classes\com\philips\cb\testrun\AssignedRunFilterAspect.class' `
     -ErrorAction SilentlyContinue
 Remove-Item -Recurse -Force 'C:\Codebeamer\CB-3.0.0.5\tomcat\work\Catalina\localhost\cb' -ErrorAction SilentlyContinue

@@ -68,9 +68,10 @@ $cbClasses   = Join-Path $cbWebapp 'WEB-INF\classes'
 $jasperDir   = Join-Path $cbRoot 'tomcat\work\Catalina\localhost\cb'
 $today       = Get-Date -Format 'yyyy-MM-dd'
 
+# v2.1 deploys two shadow classes (engine + aspect); the inlined advice produces
+# no TestRunnerEngine$AjcClosure1.class. If a future build emits one, add it here.
 $shadowFiles = @(
     'com\intland\codebeamer\manager\testmanagement\TestRunnerEngine.class',
-    'com\intland\codebeamer\manager\testmanagement\TestRunnerEngine$AjcClosure1.class',
     'com\philips\cb\testrun\AssignedRunFilterAspect.class'
 )
 # We only own the com\philips\cb\testrun\ tree (Customization B
@@ -131,7 +132,7 @@ foreach ($rel in $shadowFiles) {
     if (Test-Path -LiteralPath $lp) { $present += $lp }
 }
 if ($present.Count -eq 0) {
-    Write-Ok "All three shadow paths are already absent. Nothing to roll back."
+    Write-Ok "All shadow paths are already absent. Nothing to roll back."
     if ((Test-Path -LiteralPath $postHashFile) -and -not $DryRun) {
         $stub = @(
             '# Philips per-assignee test-runner filter (CTW) - expected post-apply SHA-256',
@@ -202,7 +203,7 @@ if (-not $DryRun -and $still.Count -gt 0) {
     $still | ForEach-Object { Write-Err "   $_" }
     exit 2
 }
-Write-Ok "Verified: all three shadow paths absent."
+Write-Ok "Verified: all shadow paths absent."
 
 # ---------- reset expected-post-apply-hashes.txt stub -------------
 if (-not $DryRun) {

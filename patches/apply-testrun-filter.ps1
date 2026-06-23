@@ -68,10 +68,12 @@ $cbClasses   = Join-Path $cbWebapp 'WEB-INF\classes'
 $liveCbJar   = Join-Path $cbWebapp 'WEB-INF\lib\cb-3.0.0.5.jar'
 $jasperDir   = Join-Path $cbRoot 'tomcat\work\Catalina\localhost\cb'
 
-# The three woven artefacts. Relative path inside both bundle and live tree.
+# The woven artefacts (v2.1: two -- engine + aspect). The v2.1 advice body has
+# no lambda, so ajc inlines proceed() and produces NO TestRunnerEngine$AjcClosure1.class.
+# If a future rebuild reintroduces a lambda and emits a closure class, add it back here.
+# Relative path inside both bundle and live tree.
 $shadowFiles = @(
     'com\intland\codebeamer\manager\testmanagement\TestRunnerEngine.class',
-    'com\intland\codebeamer\manager\testmanagement\TestRunnerEngine$AjcClosure1.class',
     'com\philips\cb\testrun\AssignedRunFilterAspect.class'
 )
 
@@ -170,7 +172,7 @@ foreach ($rel in $shadowFiles) {
     }
     $bundleHashes[$rel] = Get-Sha256 $bp
 }
-Write-Ok "Bundle integrity check passed (3 class files present)."
+Write-Ok "Bundle integrity check passed ($($shadowFiles.Count) class files present)."
 
 # ---------- idempotency / partial-apply detection -----------------
 $postHashes = Read-HashFile $postHashFile
@@ -195,7 +197,7 @@ foreach ($rel in $shadowFiles) {
 }
 
 if ($allPresent -and $matchesPost) {
-    Write-Ok "Already applied (all 3 class files match expected-post-apply hashes). Nothing to do."
+    Write-Ok "Already applied (all $($shadowFiles.Count) class files match expected-post-apply hashes). Nothing to do."
     exit 0
 }
 if (-not $nonePresent -and -not $allPresent) {
@@ -204,7 +206,7 @@ if (-not $nonePresent -and -not $allPresent) {
     exit 2
 }
 if ($allPresent -and -not $matchesPost) {
-    Write-Warn2 "All 3 class files present but hashes do not match the bundle. This is an OVERWRITE deploy."
+    Write-Warn2 "All $($shadowFiles.Count) class files present but hashes do not match the bundle. This is an OVERWRITE deploy."
     foreach ($rel in $shadowFiles) {
         $basename = Split-Path -Leaf $rel
         Write-Warn2 ("   {0}" -f $basename)
@@ -213,7 +215,7 @@ if ($allPresent -and -not $matchesPost) {
     }
 }
 
-# ---------- copy the three class files ----------------------------
+# ---------- copy the woven class files ----------------------------
 Write-Info "Copying woven class files into WEB-INF/classes ..."
 foreach ($rel in $shadowFiles) {
     $src = Join-Path $bundleRoot $rel
@@ -266,10 +268,9 @@ Write-Host ""
 Write-Warn2 "The codebeamer service must be (re)started for the classes to load:"
 Write-Warn2 "    net start codebeamer"
 Write-Host ""
-Write-Warn2 "Filter is DISABLED by default (per the class's SYSTEM_PROPERTY_DEFAULT)."
-Write-Warn2 "To enable, add to the procrun service JVM options:"
-Write-Warn2 "    -Dphilips.testrun.assigneeFilter=true"
-Write-Warn2 "and restart. To disable without uninstalling, set =false and restart."
+Write-Warn2 "The filter is ACTIVE as soon as the classes load (Option B - no switch)."
+Write-Warn2 "There is NO JVM property and NO config toggle. To turn it OFF, run the"
+Write-Warn2 "rollback below (removes the shadow classes) and restart."
 Write-Host ""
 Write-Info "Rollback (delete shadow classes, return to stock):"
 Write-Info "    .\patches\rollback-testrun-filter.ps1"
