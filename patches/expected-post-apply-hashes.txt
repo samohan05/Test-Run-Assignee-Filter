@@ -1,4 +1,4 @@
-﻿# Philips per-assignee test-runner filter (CTW) — expected post-apply SHA-256
+# Per-Assignee Test Runner Filter + Assignment Board (CTW) — expected post-apply SHA-256
 # Populated automatically by patches\apply-testrun-filter.ps1 on first successful run.
 # On subsequent runs, the apply script verifies live class files match these hashes
 # (idempotency / half-applied-detection gate).

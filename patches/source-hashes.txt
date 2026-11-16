@@ -1,4 +1,6 @@
-﻿# Philips per-assignee test-runner filter (CTW) — source SHA-256 pins
-# Stock files the apply script must verify before deploy. Mismatch = STOP (Codebeamer upgrade detected, must re-weave per DEPLOYMENT-RUNBOOK.md §Upgrade SOP).
+# Per-Assignee Test Runner Filter + Assignment Board (CTW) — source SHA-256 pins
+# Stock files the apply script must verify before deploy. Mismatch = STOP (Codebeamer
+# has been upgraded/patched since this bundle was built; re-weave per
+# DEPLOYMENT-RUNBOOK.md Upgrade SOP before deploying).
 # Algorithm: SHA-256
-cb-3.0.0.5.jar ee1db7af83626b9a751f73f72fd59da2dbb572d3258cd5aef22ced45b74539cd
+cb-3.2.0.2.jar ba85f2c182bd3a175ab457791c5f2f212c617b22d70dc1643531bc85f36e76a8

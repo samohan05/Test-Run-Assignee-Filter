@@ -1,0 +1,2376 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Assignment Board</title>
+    <!-- ========================= CSS: PRESENTATION ========================= -->
+  <style>
+      @font-face {
+        font-family: PTCRaleway;
+        src: local("PTCRaleway"), local("PTC Raleway");
+        font-display: swap;
+      }
+      :root {
+        --font: "PTCRaleway", "Raleway", "Segoe UI", Arial, sans-serif;
+        --graphite: #3d4647;
+        --green: #40aa1d;
+        --bluegray: #617480;
+        --blue: #197bc0;
+        --orange: #eb6d00;
+        --light: #c8c9c7;
+        --border: #d7dada;
+        --red: #c8102e;
+        --white: #fff;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+      }
+      body {
+        padding: 12px;
+        font: 13px var(--font);
+        color: var(--graphite);
+        background: transparent;
+        overflow: hidden;
+      }
+      button,
+      input {
+        font: inherit;
+      }
+      .toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 14px;
+        padding: 11px 12px 10px;
+        margin-bottom: 10px;
+        background: #fff;
+        border: 1px solid var(--border);
+        border-top: 4px solid var(--green);
+        box-shadow: 0 2px 8px rgba(61, 70, 71, 0.14);
+      }
+      .title {
+        font-size: 14px;
+        font-weight: 700;
+        letter-spacing: 0.035em;
+        text-transform: uppercase;
+      }
+      .meta {
+        margin-top: 2px;
+        font-size: 11px;
+        color: var(--bluegray);
+      }
+      .toolbar-actions {
+        display: flex;
+        gap: 7px;
+        align-items: center;
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 30px;
+        padding: 5px 11px;
+        border: 1px solid var(--light);
+        border-radius: 2px;
+        background: #fff;
+        color: var(--graphite);
+        cursor: pointer;
+        font-weight: 600;
+        text-decoration: none;
+        white-space: nowrap;
+      }
+      .btn:hover:not(:disabled) {
+        background: #f4f6f6;
+      }
+      .btn:disabled {
+        opacity: 0.48;
+        cursor: not-allowed;
+      }
+      .primary {
+        background: var(--green);
+        border-color: var(--green);
+        color: #fff;
+      }
+      .disabled {
+        color: #858d8e;
+        background: #eef0f0;
+        pointer-events: none;
+      }
+      .run-disabled {
+        pointer-events: auto;
+        cursor: not-allowed;
+        color: #747b7d;
+        background: #eef0f0;
+        border-color: #c8c9c7;
+        opacity: 0.72;
+      }
+      .execution-guidance {
+        margin: 0 0 10px;
+        padding: 9px 12px;
+        border: 1px solid #e2c27b;
+        border-left: 4px solid var(--orange);
+        background: #fff8e8;
+        color: #4f3a12;
+        font-size: 12px;
+        line-height: 1.45;
+      }
+      .execution-guidance strong {
+        color: #342400;
+      }
+      .parent-finished-note {
+        border-color: #d6a2a8;
+        border-left-color: var(--red);
+        background: #fff1f2;
+        color: #5f2028;
+      }
+      .parent-suspended-note {
+        border-color: #78b9c3;
+        border-left-color: #007f91;
+        background: #eaf7f9;
+        color: #174f58;
+      }
+      .parent-suspended-note strong {
+        color: #064f5b;
+      }
+      .badge.suspended {
+        color: #fff;
+        background: #007f91;
+        border-color: #007f91;
+        font-weight: 700;
+      }
+      .wrap {
+        position: relative;
+      }
+      .menu {
+        position: absolute;
+        right: 0;
+        top: 100%;
+        z-index: 40;
+        min-width: 225px;
+        margin-top: 4px;
+        padding: 4px 0;
+        background: #fff;
+        border: 1px solid var(--light);
+        box-shadow: 0 2px 8px rgba(61, 70, 71, 0.14);
+      }
+      .hidden {
+        display: none !important;
+      }
+      .mi {
+        display: block;
+        width: 100%;
+        padding: 8px 12px;
+        border: 0;
+        border-left: 3px solid transparent;
+        background: #fff;
+        text-align: left;
+        cursor: pointer;
+      }
+      .mi:hover:not(:disabled),
+      .mi.active {
+        background: rgba(64, 170, 29, 0.08);
+        border-left-color: var(--green);
+      }
+      .mi:disabled {
+        color: #a4a9a9;
+      }
+      .sep {
+        height: 1px;
+        background: var(--border);
+        margin: 4px 0;
+      }
+      .tri {
+        font-size: 9px;
+        margin-left: 6px;
+      }
+      .board {
+        overflow: auto;
+        min-height: 0;
+        max-height: none;
+        border: 1px solid var(--border);
+        background: #fff;
+        scrollbar-gutter: stable both-edges;
+      }
+      .board thead th {
+        position: sticky;
+        top: 0;
+        z-index: 5;
+        background: #f3f5f5;
+        box-shadow: 0 2px 0 var(--green);
+      }
+      table {
+        width: 100%;
+        min-width: 1500px;
+        border-collapse: collapse;
+      }
+      th {
+        padding: 8px 9px;
+        text-align: left;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        border-bottom: 2px solid var(--green);
+        background: #f3f5f5;
+        white-space: nowrap;
+      }
+      td {
+        padding: 8px 9px;
+        border-bottom: 1px solid #e8eaea;
+        vertical-align: middle;
+      }
+      tbody tr:hover td {
+        background: #f8faf8;
+      }
+      .sel {
+        width: 36px;
+        text-align: center;
+      }
+      .run {
+        width: 74px;
+      }
+      .idcol {
+        width: 130px;
+        color: var(--bluegray);
+        font-size: 11px;
+      }
+      .namecol {
+        min-width: 210px;
+      }
+      .casecol {
+        min-width: 210px;
+      }
+      .assigned {
+        min-width: 160px;
+      }
+      .statuscol {
+        width: 120px;
+      }
+      .resultcol {
+        width: 130px;
+      }
+      .runtime {
+        width: 90px;
+        white-space: nowrap;
+      }
+      .closed {
+        width: 175px;
+        white-space: nowrap;
+      }
+      .link {
+        color: var(--blue);
+        text-decoration: none;
+        font-weight: 600;
+      }
+      .link:hover {
+        text-decoration: underline;
+      }
+      .subid {
+        display: block;
+        color: var(--bluegray);
+        font-size: 10px;
+        margin-top: 2px;
+      }
+      .paramline {
+        display: block;
+        margin-top: 4px;
+        color: var(--bluegray);
+        font-size: 10px;
+        line-height: 1.35;
+      }
+      .parambadge {
+        display: inline-block;
+        margin-right: 6px;
+        padding: 1px 5px;
+        border: 1px solid var(--green);
+        border-radius: 2px;
+        color: #2f7f16;
+        background: rgba(64, 170, 29, 0.07);
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: 0.025em;
+      }
+      .parampair {
+        white-space: nowrap;
+      }
+      .leaf-depth {
+        box-shadow: inset 3px 0 0 rgba(64, 170, 29, 0.35);
+      }
+      .muted {
+        color: #92999a;
+        font-style: italic;
+      }
+      .badge {
+        display: inline-block;
+        min-width: 105px;
+        padding: 3px 8px;
+        text-align: center;
+        border-radius: 2px;
+        font-size: 10px;
+        font-weight: 700;
+        color: #fff;
+        text-transform: uppercase;
+      }
+      .statusbadge {
+        min-width: 92px;
+        background: var(--bluegray);
+      }
+      .status-empty {
+        min-width: auto;
+        background: transparent;
+        color: #92999a;
+        border: 1px solid var(--light);
+        text-transform: none;
+      }
+      .passed {
+        background: var(--green);
+      }
+      .failed {
+        background: var(--red);
+      }
+      .blocked {
+        background: var(--graphite);
+      }
+      .na {
+        background: var(--light);
+        color: var(--graphite);
+      }
+      .other {
+        background: var(--bluegray);
+      }
+      .emptybadge {
+        min-width: auto;
+        color: #7a4a00;
+        background: #fff4e8;
+        border: 1px solid var(--orange);
+        text-transform: none;
+      }
+      .skipped {
+        min-width: 92px;
+        color: #7a4a00;
+        background: #fff4e8;
+        border: 1px solid var(--orange);
+      }
+      .loading,
+      .empty {
+        padding: 14px;
+        color: var(--bluegray);
+      }
+      .error {
+        padding: 9px;
+        color: #8b0b20;
+        background: #fff3f4;
+        border-left: 4px solid var(--red);
+      }
+      .modalbg {
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+        background: rgba(61, 70, 71, 0.45);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+      }
+      .modal {
+        width: min(940px, 96vw);
+        max-height: 90vh;
+        background: #fff;
+        border: 1px solid var(--light);
+        display: flex;
+        flex-direction: column;
+      }
+      .mh,
+      .mf {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 11px 13px;
+      }
+      .mh {
+        justify-content: space-between;
+        border-top: 4px solid var(--green);
+        border-bottom: 1px solid var(--border);
+      }
+      .mh b {
+        text-transform: uppercase;
+      }
+      .mh button {
+        border: 0;
+        background: transparent;
+        font-size: 22px;
+      }
+      .mf {
+        justify-content: flex-end;
+        border-top: 1px solid var(--border);
+        background: #f7f8f8;
+      }
+      .mb {
+        padding: 13px;
+        overflow: auto;
+      }
+      .search {
+        width: 100%;
+        padding: 8px 10px;
+        margin-bottom: 11px;
+        border: 1px solid var(--light);
+      }
+      .picker {
+        display: grid;
+        grid-template-columns: 1fr 58px 1fr;
+        gap: 11px;
+        align-items: center;
+      }
+      .pane {
+        border: 1px solid var(--border);
+        min-height: 330px;
+        max-height: 440px;
+        overflow: auto;
+      }
+      .pt {
+        position: sticky;
+        top: 0;
+        padding: 8px 10px;
+        background: #f3f5f5;
+        border-bottom: 2px solid var(--green);
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+      }
+      .gt {
+        padding: 6px 10px;
+        background: #f8f9f9;
+        color: var(--bluegray);
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+      }
+      .opt {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 8px 10px;
+        border-bottom: 1px solid #eceeee;
+        cursor: pointer;
+      }
+      .opt:hover,
+      .opt.on {
+        background: rgba(64, 170, 29, 0.08);
+        box-shadow: inset 3px 0 var(--green);
+      }
+      .extra {
+        font-size: 10px;
+        color: var(--bluegray);
+      }
+      .tag {
+        font-size: 9px;
+        padding: 2px 6px;
+        border: 1px solid var(--bluegray);
+        border-radius: 9px;
+      }
+      .xfer {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .xfer button {
+        height: 32px;
+      }
+      .statusmsg {
+        margin-right: auto;
+        font-size: 11px;
+        color: var(--bluegray);
+      }
+      .bad {
+        color: var(--red);
+      }
+      :root {
+        --text-primary: #111;
+        --text-secondary: #303638;
+        --text-muted: #525a5c;
+        --text-disabled: #747b7d;
+      }
+      body {
+        font-size: 14px;
+        color: var(--text-primary);
+        font-weight: 500;
+        line-height: 1.35;
+      }
+      .title {
+        font-size: 15px;
+        color: var(--text-primary);
+      }
+      .meta {
+        font-size: 12px;
+        color: var(--text-secondary);
+      }
+      td {
+        font-size: 13px;
+        color: var(--text-primary);
+      }
+      th {
+        font-size: 11px;
+        color: var(--text-primary);
+      }
+      .idcol,
+      .subid,
+      .paramline,
+      .extra,
+      .statusmsg {
+        color: var(--text-muted);
+      }
+      .idcol {
+        font-size: 12px;
+      }
+      .subid,
+      .paramline,
+      .extra {
+        font-size: 11px;
+      }
+      .muted {
+        color: var(--text-muted);
+      }
+      .btn,
+      .mi,
+      .search {
+        color: var(--text-primary);
+        font-size: 13px;
+      }
+      .mi:disabled,
+      .btn:disabled,
+      .disabled {
+        color: var(--text-disabled);
+      }
+      .board-search-wrap {
+        position: relative;
+        display: block;
+      }
+      .board-search {
+        width: 270px;
+        height: 32px;
+        padding: 5px 66px 5px 10px;
+        border: 1px solid var(--light);
+        border-radius: 2px;
+        color: var(--text-primary);
+        background: #fff;
+      }
+      .board-search:focus,
+      .search:focus {
+        outline: 2px solid #64a8d7;
+        outline-offset: 1px;
+      }
+      .search-clear {
+        position: absolute;
+        right: 34px;
+        top: 2px;
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 0;
+        border-radius: 2px;
+        background: transparent;
+        color: var(--text-muted);
+        font-size: 18px;
+        line-height: 1;
+        cursor: pointer;
+      }
+      .search-clear:hover {
+        background: #eef2f2;
+        color: #111;
+      }
+      .search-clear:disabled {
+        display: none;
+      }
+      .board-search-icon {
+        position: absolute;
+        right: 2px;
+        top: 2px;
+        width: 30px;
+        height: 28px;
+        padding: 0;
+        border: 0;
+        border-left: 1px solid var(--border);
+        border-radius: 0 2px 2px 0;
+        background: transparent;
+        color: var(--text-muted);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .board-search-icon:hover,
+      .board-search-icon:focus {
+        background: #eef2f2;
+        color: #111;
+        outline: none;
+      }
+      .board-search-icon svg {
+        width: 16px;
+        height: 16px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      thead th.idcol {
+        color: var(--text-primary);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+      tbody td.idcol {
+        color: var(--text-muted);
+        font-size: 12px;
+        font-weight: 500;
+        letter-spacing: normal;
+        text-transform: none;
+      }
+      .operation-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 1200;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        background: rgba(20, 27, 31, 0.72);
+        pointer-events: all;
+      }
+      .operation-card {
+        width: min(520px, 94vw);
+        padding: 28px;
+        background: #fff;
+        border-top: 5px solid var(--green);
+        box-shadow: 0 12px 38px rgba(0, 0, 0, 0.3);
+        text-align: center;
+      }
+      .operation-title {
+        font-size: 19px;
+        font-weight: 800;
+        color: var(--text-primary);
+        text-transform: uppercase;
+        letter-spacing: 0.025em;
+      }
+      .operation-message {
+        margin: 12px 0 4px;
+        font-size: 14px;
+        color: var(--text-primary);
+      }
+      .operation-note {
+        margin-top: 8px;
+        color: var(--text-secondary);
+        font-size: 12px;
+      }
+      .elapsed {
+        margin-top: 14px;
+        font-weight: 700;
+        color: var(--text-primary);
+      }
+      .spinner {
+        width: 42px;
+        height: 42px;
+        margin: 0 auto 18px;
+        border: 5px solid #dce4e5;
+        border-top-color: var(--green);
+        border-radius: 50%;
+        animation: spin 0.85s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      body.operation-locked #root,
+      body.operation-locked #dlg {
+        pointer-events: none;
+        user-select: none;
+        filter: saturate(0.7);
+      }
+      .confirm-modal {
+        width: min(560px, 94vw);
+      }
+      .confirm-body {
+        padding: 18px 20px;
+        color: var(--text-primary);
+        font-size: 14px;
+        line-height: 1.5;
+      }
+      .confirm-warning {
+        margin-top: 12px;
+        padding: 10px 12px;
+        border-left: 4px solid var(--orange);
+        background: #fff4e8;
+        color: #5b3500;
+      }
+      .danger {
+        background: var(--red);
+        border-color: var(--red);
+        color: #fff;
+      }
+      .loading-inline {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .mini-spinner {
+        width: 17px;
+        height: 17px;
+        border: 3px solid #dce4e5;
+        border-top-color: var(--green);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+      .operation-error .spinner {
+        display: none;
+      }
+      .operation-error .operation-card {
+        border-top-color: var(--red);
+      }
+      .operation-error .operation-title {
+        color: var(--red);
+      }
+      @media (max-width: 760px) {
+        .toolbar {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+        .toolbar-actions {
+          flex-wrap: wrap;
+        }
+        .picker {
+          grid-template-columns: 1fr;
+        }
+        .xfer {
+          flex-direction: row;
+          justify-content: center;
+        }
+      }
+    </style>
+  </head>
+  <!-- ========================= HTML: PAGE STRUCTURE ========================= -->
+  <body>
+    <div id="root"><div class="loading">Initializing...</div></div>
+    <div id="dlg" class="modalbg hidden">
+      <div class="modal">
+        <div class="mh">
+          <b>Assign selected Test Runs</b><button onclick="return closeDlg()">×</button>
+        </div>
+        <div class="mb">
+          <input
+            id="q"
+            class="search"
+            placeholder="Search users, roles, groups, or email..."
+            oninput="drawPicker()"
+          />
+          <div class="picker">
+            <div class="pane">
+              <div class="pt">Available</div>
+              <div id="av"></div>
+            </div>
+            <div class="xfer">
+              <button onclick="return addMany()">→</button
+              ><button onclick="return removeMany()">←</button>
+            </div>
+            <div class="pane">
+              <div class="pt">Selected <span id="cnt">(0)</span></div>
+              <div id="ch"></div>
+            </div>
+          </div>
+        </div>
+        <div class="mf">
+          <span id="ds" class="statusmsg"></span
+          ><button class="btn" onclick="return closeDlg()">Cancel</button
+          ><button id="ok" class="btn primary" disabled onclick="return assignOthers()">
+            Assign
+          </button>
+        </div>
+      </div>
+    </div>
+    <div id="clearDlg" class="modalbg hidden">
+      <div class="modal confirm-modal" role="dialog" aria-modal="true" aria-labelledby="clearTitle">
+        <div class="mh">
+          <b id="clearTitle">Clear Assigned To?</b
+          ><button aria-label="Close confirmation" onclick="return closeClearConfirmation()">
+            ×
+          </button>
+        </div>
+        <div class="confirm-body">
+          <div id="clearText"></div>
+          <div class="confirm-warning">
+            Large selections may take several minutes. The Assignment Board will remain locked until
+            processing finishes.
+          </div>
+        </div>
+        <div class="mf">
+          <button class="btn" onclick="return closeClearConfirmation()">Cancel</button
+          ><button id="clearConfirm" class="btn danger" onclick="return confirmClearAssignments()">
+            Clear assignments
+          </button>
+        </div>
+      </div>
+    </div>
+    <div
+      id="operationOverlay"
+      class="operation-overlay hidden"
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+    >
+      <div class="operation-card">
+        <div class="spinner"></div>
+        <div id="operationTitle" class="operation-title">Updating assignments</div>
+        <div id="operationMessage" class="operation-message"></div>
+        <div id="operationNote" class="operation-note">
+          Please keep this page open. The board will refresh automatically.
+        </div>
+        <div id="operationElapsed" class="elapsed">Elapsed time: 00:00</div>
+        <button id="operationClose" class="btn hidden" onclick="return closeOperationError()">
+          Close and refresh
+        </button>
+      </div>
+    </div>
+    <!-- ========================= JAVASCRIPT: WIDGET RUNTIME ========================= -->
+    <script src="cb-widget-api.js"></script>
+    <script>
+      if (!window.CbWidgetApi || !window.CbWidgetApi.WidgetApi) {
+        document.getElementById("root").innerHTML =
+          '<div class="error">The Codebeamer Widget API could not be loaded. Verify that cb-widget-api.js is deployed beside executeRunWidget.html.</div>';
+        throw new Error("Missing dependency: cb-widget-api.js");
+      }
+      (function () {
+        "use strict";
+        var ID = "philips-execute-run-widget",
+          VER = "18.4.4-parent-guard-r5.1-20260928",
+          API = "/cb/api",
+          RUNNER = "/cb/testset/testRunner.spr";
+        var api = new window.CbWidgetApi.WidgetApi(window, ID, "*"),
+          root = document.getElementById("root"),
+          pid = null,
+          parent = null,
+          all = [],
+          allowed = {},
+          filter = "ALL",
+          selection = {},
+          userP = null,
+          lastH = 0,
+          rt = null,
+          poll = null,
+          opts = [],
+          chosen = {},
+          aSel = {},
+          cSel = {},
+          targets = [],
+          boardQuery = "",
+          operationInProgress = false,
+          operationStartedAt = 0,
+          operationTimer = null,
+          pendingClearIds = [],
+          VISIBLE_ROW_TARGET = 12,
+          BOARD_MAX_HEIGHT = 820,
+          WIDGET_MAX_HEIGHT = 1050,
+          layoutPassTimer = null,
+          layoutPassAttempts = 0;
+        function esc(v) {
+          return String(v == null ? "" : v)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;");
+        }
+        function resize(force) {
+          var m =
+              !document.getElementById("dlg").classList.contains("hidden") ||
+              !document.getElementById("clearDlg").classList.contains("hidden") ||
+              !document.getElementById("operationOverlay").classList.contains("hidden"),
+            h = Math.min(
+              WIDGET_MAX_HEIGHT,
+              Math.max(120, Math.ceil(root.getBoundingClientRect().height) + 24, m ? 620 : 0),
+            );
+          if (!force && Math.abs(h - lastH) < 2) return;
+          lastH = h;
+          try {
+            api.resize(h);
+          } catch (_) {}
+        }
+        function schedule() {
+          clearTimeout(rt);
+          rt = setTimeout(function () {
+            resize(false);
+          }, 40);
+        }
+        function stable() {
+          [0, 100, 300, 700, 1400].forEach(function (x) {
+            setTimeout(function () {
+              resize(true);
+            }, x);
+          });
+        }
+        function show(h) {
+          root.innerHTML = h;
+          lastH = 0;
+          schedule();
+          stable();
+          requestLayoutPass(true);
+        }
+        function boardGeometryReady() {
+          var board = root.querySelector(".board"),
+            table = board && board.querySelector("table"),
+            head = table && table.querySelector("thead"),
+            firstRow = table && table.querySelector("tbody tr");
+          if (!board || !table || !head) {
+            return false;
+          }
+          return (
+            table.getBoundingClientRect().width > 10 &&
+            head.getBoundingClientRect().height > 0 &&
+            (!firstRow || firstRow.getBoundingClientRect().height > 0)
+          );
+        }
+
+        function requestLayoutPass(resetAttempts) {
+          if (resetAttempts) {
+            layoutPassAttempts = 0;
+          }
+          clearTimeout(layoutPassTimer);
+          layoutPassTimer = setTimeout(function runLayoutPass() {
+            sizeBoard();
+            resize(false);
+            if (!boardGeometryReady() && layoutPassAttempts < 24) {
+              layoutPassAttempts += 1;
+              layoutPassTimer = setTimeout(runLayoutPass, 250);
+            } else {
+              layoutPassAttempts = 0;
+            }
+          }, 40);
+        }
+
+        function sizeBoard() {
+          var board = root.querySelector(".board"),
+            table = board && board.querySelector("table"),
+            head = table && table.querySelector("thead"),
+            rows = table ? Array.prototype.slice.call(table.querySelectorAll("tbody tr")) : [];
+          if (!board || !table || !head) return;
+          board.style.height = "auto";
+          board.style.maxHeight = "none";
+          board.style.overflowY = "visible";
+          if (rows.length > VISIBLE_ROW_TARGET) {
+            var visible = rows.slice(0, VISIBLE_ROW_TARGET),
+              height = Math.ceil(
+                head.getBoundingClientRect().height +
+                  visible.reduce(function (total, row) {
+                    return total + row.getBoundingClientRect().height;
+                  }, 0) +
+                  4,
+              ),
+              target = Math.min(BOARD_MAX_HEIGHT, height);
+            board.style.height = target + "px";
+            board.style.maxHeight = target + "px";
+            board.style.overflowY = "auto";
+          }
+          schedule();
+          stable();
+        }
+        new MutationObserver(schedule).observe(root, {
+          childList: true,
+          subtree: true,
+          characterData: true,
+        });
+        function call(path, o) {
+          o = o || {};
+          o.credentials = "include";
+          o.cache = "no-store";
+          o.headers = Object.assign({ Accept: "application/json" }, o.headers || {});
+          return fetch(API + path, o).then(function (r) {
+            if (r.ok) return r.status === 204 ? null : r.json();
+            return r.text().then(function (t) {
+              throw Error("HTTP " + r.status + (t ? ": " + t.slice(0, 260) : ""));
+            });
+          });
+        }
+        function payloadItems(p) {
+          return Array.isArray(p) ? p : (p && (p.items || p.trackerItems)) || [];
+        }
+        function auth(id) {
+          return call(
+            "/testRun/philips/authorizedChildren?parentId=" + id + "&_t=" + Date.now(),
+          ).then(function (p) {
+            var x = {};
+            (p.authorizedChildIds || []).forEach(function (i) {
+              x[+i] = 1;
+            });
+            return x;
+          });
+        }
+        function me() {
+          if (!userP)
+            userP = call("/testRun/philips/currentUser?_t=" + Date.now()).catch(function (x) {
+              userP = null;
+              throw x;
+            });
+          return userP;
+        }
+        function resultEmpty(c) {
+          var rs = Array.isArray(c && c.resolutions) ? c.resolutions : [];
+          if (rs.length) return false;
+          var r = c && c.result;
+          if (r == null) return true;
+          if (typeof r === "string") return !r.trim();
+          if (Array.isArray(r)) return !r.length;
+          if (typeof r === "object") return !Object.keys(r).length;
+          return false;
+        }
+        function statusValue(c) {
+          return String((c && c.status && (c.status.name || c.status.value || c.status.id)) || "")
+            .trim()
+            .toLowerCase();
+        }
+        function statusEmpty(c) {
+          var v = statusValue(c);
+          return !v || v === "unset" || v === "--" || v === "none" || v === "empty";
+        }
+        function statusFinished(c) {
+          var v = statusValue(c);
+          return v === "finished" || v === "closed" || v === "completed" || v === "complete";
+        }
+        function parentFinished() {
+          return !!parent && statusFinished(parent);
+        }
+        function parentSuspended() {
+          return !!parent && /suspend|pause/.test(statusValue(parent));
+        }
+        function parentExecutionBlocked() {
+          return parentFinished() || parentSuspended();
+        }
+        function runDisabledReason(child) {
+          if (parentFinished()) {
+            return "The parent Test Run is finished. Child execution is unavailable.";
+          }
+          if (parentSuspended()) {
+            return (
+              "The parent Test Run is suspended. " +
+              "Resume execution from the parent Test Run."
+            );
+          }
+          if (!allowed[+child.id]) {
+            return "The current user is not authorized for this execution.";
+          }
+          if (statusFinished(child)) {
+            return "The child Test Run is already finished.";
+          }
+          return "The current execution state does not allow Run.";
+        }
+        function executionGuidanceHtml() {
+          if (parentFinished()) {
+            return (
+              '<div class="execution-guidance parent-finished-note" role="note">' +
+                '<strong>Parent Test Run finished:</strong> ' +
+                'Child execution is unavailable.' +
+              '</div>'
+            );
+          }
+
+          if (parentSuspended()) {
+            return (
+              '<div class="execution-guidance parent-suspended-note" role="note">' +
+                '<strong>Parent Test Run suspended:</strong> ' +
+                'Individual child execution is unavailable. ' +
+                'Resume execution from the parent Test Run.' +
+              '</div>'
+            );
+          }
+
+          return (
+            '<div class="execution-guidance" role="note">' +
+              '<strong>Important:</strong> ' +
+              'The native <strong>End Run</strong> action completes ' +
+              'the entire parent Test Run, not only the selected child.' +
+            '</div>'
+          );
+        }
+        function skipped(c) {
+          return statusFinished(c) && resultEmpty(c);
+        }
+        function editable(c) {
+          return !statusFinished(c) && resultEmpty(c) && statusEmpty(c);
+        }
+        function runOpen(c) {
+          if (statusFinished(c)) return false;
+          return resultEmpty(c) || statusEmpty(c);
+        }
+        function ass(c) {
+          return Array.isArray(c && c.assignedTo) ? c.assignedTo : [];
+        }
+        function nonEmptyText(value) {
+          if (value === null || value === undefined) {
+            return "";
+          }
+
+          var text = String(value).trim();
+          return text && text.toLowerCase() !== "null" ? text : "";
+        }
+
+        function nestedReference(reference) {
+          if (!reference) {
+            return {};
+          }
+
+          return (
+            reference.user ||
+            reference.principal ||
+            reference.reference ||
+            reference.value ||
+            reference.member ||
+            {}
+          );
+        }
+
+        function assignmentDisplayName(reference) {
+          if (!reference) {
+            return "";
+          }
+
+          var nested = nestedReference(reference);
+          var firstName =
+            nonEmptyText(reference.firstName) || nonEmptyText(nested.firstName);
+          var lastName =
+            nonEmptyText(reference.lastName) || nonEmptyText(nested.lastName);
+          var fullName = [firstName, lastName]
+            .filter(function (value) {
+              return value !== "";
+            })
+            .join(" ");
+
+          return (
+            nonEmptyText(reference.displayName) ||
+            nonEmptyText(nested.displayName) ||
+            fullName ||
+            nonEmptyText(reference.name) ||
+            nonEmptyText(nested.name) ||
+            nonEmptyText(reference.userName) ||
+            nonEmptyText(nested.userName) ||
+            nonEmptyText(reference.email) ||
+            nonEmptyText(nested.email) ||
+            nonEmptyText(reference.id) ||
+            nonEmptyText(nested.id)
+          );
+        }
+
+        function assignmentSearchText(c) {
+          return ass(c)
+            .map(function (reference) {
+              var nested = nestedReference(reference);
+              return [
+                assignmentDisplayName(reference),
+                reference && reference.displayName,
+                reference && reference.name,
+                reference && reference.userName,
+                reference && reference.email,
+                reference && reference.id,
+                nested.displayName,
+                nested.name,
+                nested.userName,
+                nested.email,
+                nested.id,
+              ]
+                .map(nonEmptyText)
+                .filter(function (value) {
+                  return value !== "";
+                })
+                .join(" ");
+            })
+            .join(" ");
+        }
+
+        function atxt(c) {
+          var assignments = ass(c);
+
+          if (!assignments.length) {
+            return "Unassigned";
+          }
+
+          return assignments
+            .map(assignmentDisplayName)
+            .filter(function (value) {
+              return value !== "";
+            })
+            .join(", ");
+        }
+
+        function resultName(c) {
+          if (skipped(c)) return "Skipped";
+          if (resultEmpty(c)) return "";
+          if (Array.isArray(c.resolutions) && c.resolutions.length)
+            return c.resolutions
+              .map(function (x) {
+                return x.name || x.id;
+              })
+              .join(", ");
+          if (typeof c.result === "object") return c.result.name || c.result.value || "Completed";
+          return String(c.result || "Completed");
+        }
+        function resultBadge(c) {
+          if (skipped(c)) return '<span class="badge skipped">Skipped</span>';
+          var v = resultName(c),
+            n = v.toLowerCase(),
+            k = !v
+              ? "emptybadge"
+              : /pass|success/.test(n)
+                ? "passed"
+                : /fail|error/.test(n)
+                  ? "failed"
+                  : /block/.test(n)
+                    ? "blocked"
+                    : /not applicable|n\/a/.test(n)
+                      ? "na"
+                      : "other";
+          return '<span class="badge ' + k + '">' + esc(v || "Empty") + "</span>";
+        }
+        function statusBadge(c) {
+          if (statusEmpty(c)) {
+            return '<span class="badge status-empty">--</span>';
+          }
+
+          var value = String(c.status.name || c.status.value || c.status.id),
+            normalized = value.trim().toLowerCase(),
+            badgeClass = /finish|closed|complete/.test(normalized)
+              ? "passed"
+              : /suspend|pause/.test(normalized)
+                ? "suspended"
+                : /progress|running/.test(normalized)
+                  ? "other"
+                  : "statusbadge";
+
+          return '<span class="badge ' + badgeClass + '">' + esc(value) + "</span>";
+        }
+        var relatedItemCache = {},
+          runItemCache = {};
+        function isTestCaseItem(item) {
+          if (!item || !item.tracker) return false;
+          var key = String(item.tracker.keyName || item.tracker.key || "").toUpperCase(),
+            typeName = String(
+              (item.tracker.type && item.tracker.type.name) ||
+                item.trackerTypeName ||
+                item.typeName ||
+                "",
+            ).toLowerCase();
+          return key === "TESTCASE" || typeName === "testcase" || typeName === "test case";
+        }
+        function relatedItem(id) {
+          id = Number(id);
+          if (!relatedItemCache[id])
+            relatedItemCache[id] = call("/v3/items/" + id + "?_t=" + Date.now()).catch(function () {
+              return null;
+            });
+          return relatedItemCache[id];
+        }
+        function enrichTestCase(child) {
+          return call(
+            "/v3/items/" +
+              child.id +
+              "/relations?page=1&pageSize=500&ignoreRedundants=true&_t=" +
+              Date.now(),
+          )
+            .then(function (rel) {
+              var refs = Array.isArray(rel && rel.upstreamReferences) ? rel.upstreamReferences : [];
+              return Promise.all(
+                refs.map(function (ref) {
+                  var rev = ref && ref.itemRevision;
+                  if (!rev || rev.id == null) return null;
+                  return relatedItem(rev.id).then(function (item) {
+                    if (!isTestCaseItem(item)) return null;
+                    return {
+                      id: Number(rev.commonItemId || rev.id),
+                      revisionItemId: Number(rev.id),
+                      name: item.name || "TESTCASE-" + rev.id,
+                      version: Number(rev.version) || null,
+                      keyName:
+                        (item.tracker && (item.tracker.keyName || item.tracker.key)) || "TESTCASE",
+                    };
+                  });
+                }),
+              ).then(function (candidates) {
+                child.testCaseContext =
+                  candidates.find(function (x) {
+                    return x != null;
+                  }) || null;
+                return child;
+              });
+            })
+            .catch(function () {
+              child.testCaseContext = null;
+              return child;
+            });
+        }
+        function testCaseHtml(c) {
+          var tc = c && c.testCaseContext;
+          if (!tc) return '<span class="muted">--</span>';
+          var href =
+              "/cb/item/" +
+              tc.id +
+              (tc.version ? "?version=" + encodeURIComponent(tc.version) : ""),
+            suffix = tc.keyName + "-" + tc.id + (tc.version ? " · v" + tc.version : "");
+          return (
+            '<a class="link" target="_top" href="' +
+            esc(href) +
+            '">' +
+            esc(tc.name) +
+            '</a><span class="subid">' +
+            esc(suffix) +
+            "</span>"
+          );
+        }
+        function decodeWikiEscapes(value) {
+          return String(value || "").replace(/\\(.)/g, function (match, ch) {
+            return ch;
+          });
+        }
+        function decodeParamName(value) {
+          return decodeWikiEscapes(value).trim();
+        }
+        function decodeParamValue(value) {
+          return decodeWikiEscapes(value).trim();
+        }
+        function parseParameters(description) {
+          var text = String(description || ""),
+            m = text.match(/\[\{TestRunParameters([\s\S]*?)\}\]/);
+          if (!m) return [];
+          return m[1]
+            .split(/\r?\n/)
+            .map(function (line) {
+              line = line.trim();
+              if (!line) return null;
+              var at = line.indexOf("=");
+              if (at < 0) return null;
+              return {
+                name: decodeParamName(line.substring(0, at)),
+                value: decodeParamValue(line.substring(at + 1)),
+              };
+            })
+            .filter(function (x) {
+              return x && x.name;
+            });
+        }
+        function parameterHtml(c) {
+          var pairs = Array.isArray(c && c.parameterValues) ? c.parameterValues : [];
+          if (!pairs.length) return "";
+          return (
+            '<span class="paramline"><span class="parambadge">PARAMETERIZED</span>' +
+            pairs
+              .map(function (x) {
+                return (
+                  '<span class="parampair">' +
+                  esc(x.name) +
+                  " = <strong>" +
+                  esc(x.value) +
+                  "</strong></span>"
+                );
+              })
+              .join(" · ") +
+            "</span>"
+          );
+        }
+        function childRefs(item) {
+          return Array.isArray(item && item.children)
+            ? item.children.filter(function (x) {
+                return x && x.id != null;
+              })
+            : [];
+        }
+        function testCaseIndex(item) {
+          var m = String((item && item.description) || "").match(/\/\/TEST_CASE_INDEX:\s*(\d+)/);
+          return m ? Number(m[1]) : Number.MAX_SAFE_INTEGER;
+        }
+        function queryAll(queryString) {
+          var page = 1,
+            pageSize = 500,
+            maxPages = 10,
+            maxItems = 2000,
+            collected = [],
+            seenPages = {};
+          function next() {
+            if (page > maxPages) throw Error("Item query exceeded " + maxPages + " pages.");
+            return call("/v3/items/query", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ page: page, pageSize: pageSize, queryString: queryString }),
+            }).then(function (response) {
+              var items = Array.isArray(response && response.items) ? response.items : [],
+                signature = items
+                  .map(function (x) {
+                    return x && x.id;
+                  })
+                  .join(",");
+              if (seenPages[signature] && items.length)
+                throw Error("Item query returned a repeated page.");
+              seenPages[signature] = 1;
+              collected = collected.concat(items);
+              if (collected.length > maxItems)
+                throw Error("Parent exceeds the supported query item limit of " + maxItems + ".");
+              var total = Number(response && response.total) || 0;
+              if (!items.length || collected.length >= total) return collected;
+              page += 1;
+              return next();
+            });
+          }
+          return next();
+        }
+        function mapLimit(items, limit, worker) {
+          var output = new Array(items.length),
+            nextIndex = 0;
+          function runner() {
+            function step() {
+              var i = nextIndex++;
+              if (i >= items.length) return Promise.resolve();
+              return Promise.resolve(worker(items[i], i))
+                .then(function (value) {
+                  output[i] = value;
+                })
+                .then(step);
+            }
+            return step();
+          }
+          var workers = [];
+          for (var i = 0; i < Math.min(limit, items.length); i++) workers.push(runner());
+          return Promise.all(workers).then(function () {
+            return output;
+          });
+        }
+        function prepareLeaf(item, depth, structuralParent) {
+          item.parameterValues = parseParameters(item.description);
+          item.parameterized =
+            item.parameterValues.length > 0 ||
+            String(item.description || "").indexOf("THIS_TEST_IS_PARAMETERIZED") >= 0;
+          item.structuralParentId = structuralParent ? Number(structuralParent.id) : null;
+          item.structuralParentName = structuralParent ? structuralParent.name : null;
+          item.displayDepth = depth;
+          return item;
+        }
+        function orderedImmediate(items) {
+          var byId = {};
+          items.forEach(function (x) {
+            if (x && x.id != null) byId[Number(x.id)] = x;
+          });
+          var refs = childRefs(parent),
+            ordered = [];
+          refs.forEach(function (ref) {
+            var item = byId[Number(ref.id)];
+            if (item) {
+              ordered.push(item);
+              delete byId[Number(ref.id)];
+            }
+          });
+          Object.keys(byId)
+            .map(function (k) {
+              return byId[k];
+            })
+            .sort(function (a, b) {
+              var ai = testCaseIndex(a),
+                bi = testCaseIndex(b);
+              return ai - bi || Number(a.id) - Number(b.id);
+            })
+            .forEach(function (x) {
+              ordered.push(x);
+            });
+          return ordered;
+        }
+        function buildLeavesFromQueries(immediate, descendants) {
+          var byId = {};
+          immediate.concat(descendants).forEach(function (x) {
+            if (x && x.id != null) {
+              byId[Number(x.id)] = x;
+              runItemCache[Number(x.id)] = Promise.resolve(x);
+            }
+          });
+          var leaves = [];
+          orderedImmediate(immediate).forEach(function (item) {
+            var refs = childRefs(item);
+            if (!refs.length) {
+              leaves.push(prepareLeaf(item, 1, null));
+              return;
+            }
+            refs.forEach(function (ref) {
+              var child = byId[Number(ref.id)];
+              if (!child)
+                throw Error(
+                  "Parameterized execution " + ref.id + " was not returned by the paginated query.",
+                );
+              if (childRefs(child).length)
+                throw Error(
+                  "Hierarchy deeper than parent → container → execution is not supported.",
+                );
+              leaves.push(prepareLeaf(child, 2, item));
+            });
+          });
+          var unique = {},
+            dedup = [];
+          leaves.forEach(function (x) {
+            if (unique[x.id]) throw Error("Repeated execution " + x.id + " detected in hierarchy.");
+            unique[x.id] = 1;
+            dedup.push(x);
+          });
+          dedup.forEach(function (x, i) {
+            x.nativeIndex = i + 1;
+          });
+          return dedup;
+        }
+        function loadQueryHierarchy() {
+          return queryAll("parentId IN (" + Number(pid) + ")")
+            .then(function (immediate) {
+              var containerIds = immediate
+                .filter(function (x) {
+                  return childRefs(x).length > 0;
+                })
+                .map(function (x) {
+                  return Number(x.id);
+                });
+              if (!containerIds.length) return { immediate: immediate, descendants: [] };
+              return queryAll("parentId IN (" + containerIds.join(",") + ")").then(
+                function (descendants) {
+                  return { immediate: immediate, descendants: descendants };
+                },
+              );
+            })
+            .then(function (data) {
+              return buildLeavesFromQueries(data.immediate, data.descendants);
+            });
+        }
+        function duration(ms) {
+          var v = Number(ms);
+          if (!Number.isFinite(v) || v <= 0) return "--";
+          var s = Math.floor(v / 1000),
+            d = Math.floor(s / 86400);
+          s %= 86400;
+          var h = Math.floor(s / 3600);
+          s %= 3600;
+          var m = Math.floor(s / 60);
+          s %= 60;
+          var a = [];
+          if (d) a.push(d + "d");
+          if (h) a.push(h + "h");
+          if (m) a.push(m + "m");
+          if (s || !a.length) a.push(s + "s");
+          return a.join(" ");
+        }
+        function dateTime(v) {
+          if (!v) return "--";
+          var d = new Date(v);
+          if (isNaN(d.getTime())) return String(v);
+          try {
+            return new Intl.DateTimeFormat(undefined, {
+              year: "numeric",
+              month: "short",
+              day: "2-digit",
+              hour: "2-digit",
+              minute: "2-digit",
+            }).format(d);
+          } catch (_) {
+            return d.toLocaleString();
+          }
+        }
+        function rowSearchText(c) {
+          var tc = c && c.testCaseContext,
+            pairs = Array.isArray(c && c.parameterValues) ? c.parameterValues : [];
+          return [
+            c && c.id,
+            c && c.name,
+            tc && tc.id,
+            tc && tc.name,
+            assignmentSearchText(c),
+            statusValue(c),
+            resultName(c),
+          ]
+            .concat(
+              pairs.reduce(function (a, x) {
+                a.push(x.name, x.value);
+                return a;
+              }, []),
+            )
+            .join(" ")
+            .toLowerCase();
+        }
+        function filtered() {
+          var q = boardQuery.trim().toLowerCase();
+          return all.filter(function (c) {
+            var has = ass(c).length > 0,
+              ok =
+                filter === "MINE" ? has && allowed[+c.id] : filter === "UNASSIGNED" ? !has : true;
+            return ok && (!q || rowSearchText(c).indexOf(q) >= 0);
+          });
+        }
+        function flabel() {
+          return filter === "MINE"
+            ? "Assigned to me"
+            : filter === "UNASSIGNED"
+              ? "Unassigned"
+              : "All runs";
+        }
+        function closeMenus() {
+          document.querySelectorAll(".menu").forEach(function (x) {
+            x.classList.add("hidden");
+          });
+        }
+        window.menu = function (id, ev) {
+          if (operationInProgress) return false;
+          if (ev) ev.stopPropagation();
+          var x = document.getElementById(id),
+            open = x.classList.contains("hidden");
+          closeMenus();
+          if (open) x.classList.remove("hidden");
+          return false;
+        };
+        document.addEventListener("click", closeMenus);
+        window.submitBoardSearch = function () {
+          if (operationInProgress) return false;
+          var input = document.getElementById("boardSearch");
+          boardQuery = String(input ? input.value : "").trim();
+          selection = {};
+          draw();
+          return false;
+        };
+        window.boardSearchKeydown = function (event) {
+          if (operationInProgress) return false;
+          if (event.key === "Enter") {
+            event.preventDefault();
+            return submitBoardSearch();
+          }
+          if (event.key === "Escape") {
+            event.preventDefault();
+            return clearBoardSearch();
+          }
+          return true;
+        };
+        window.clearBoardSearch = function () {
+          if (operationInProgress) return false;
+          var input = document.getElementById("boardSearch");
+          if (input) input.value = "";
+          boardQuery = "";
+          selection = {};
+          draw();
+          return false;
+        };
+        window.setFilter = function (x) {
+          if (operationInProgress) return false;
+          filter = x;
+          selection = {};
+          closeMenus();
+          draw();
+          return false;
+        };
+        function selected() {
+          return Object.keys(selection)
+            .map(function (k) {
+              return selection[k];
+            })
+            .filter(function (x) {
+              return x && x.on;
+            });
+        }
+        function ids() {
+          return selected().map(function (x) {
+            return +x.id;
+          });
+        }
+        function assignedIds() {
+          return selected()
+            .filter(function (x) {
+              return x.has;
+            })
+            .map(function (x) {
+              return +x.id;
+            });
+        }
+        function actions() {
+          var n = selected().length,
+            b = document.getElementById("ab");
+          if (!b) return;
+          b.disabled = !n;
+          b.innerHTML = (n ? "Actions (" + n + ")" : "Actions") + ' <span class="tri">▼</span>';
+          document.getElementById("ame").disabled = !n;
+          document.getElementById("aother").disabled = !n;
+          document.getElementById("aclear").disabled = !assignedIds().length;
+          document.getElementById("asel").disabled = !n;
+        }
+        window.row = function (box, id, has) {
+          if (operationInProgress) {
+            box.checked = !box.checked;
+            return false;
+          }
+          selection[id] = { id: +id, on: box.checked, has: !!has };
+          actions();
+        };
+        window.allRows = function (box) {
+          if (operationInProgress) {
+            box.checked = !box.checked;
+            return false;
+          }
+          document.querySelectorAll(".rc:not(:disabled)").forEach(function (c) {
+            c.checked = box.checked;
+            selection[c.value] = { id: +c.value, on: box.checked, has: c.dataset.has === "true" };
+          });
+          actions();
+        };
+        window.clearSel = function () {
+          if (operationInProgress) return false;
+          selection = {};
+          closeMenus();
+          draw();
+          return false;
+        };
+        function elapsedText(ms) {
+          var total = Math.max(0, Math.floor(ms / 1000)),
+            m = Math.floor(total / 60),
+            sec = total % 60;
+          return String(m).padStart(2, "0") + ":" + String(sec).padStart(2, "0");
+        }
+        function warnDuringOperation(e) {
+          if (!operationInProgress) return;
+          e.preventDefault();
+          e.returnValue = "";
+          return "";
+        }
+        function beginOperation(title, message) {
+          if (operationInProgress) return false;
+          operationInProgress = true;
+          operationStartedAt = Date.now();
+          document.body.classList.add("operation-locked");
+          var o = document.getElementById("operationOverlay");
+          o.classList.remove("hidden", "operation-error");
+          document.getElementById("operationTitle").textContent = title;
+          document.getElementById("operationMessage").textContent = message;
+          document.getElementById("operationNote").textContent =
+            "Please keep this page open. The board will refresh automatically.";
+          document.getElementById("operationClose").classList.add("hidden");
+          clearInterval(operationTimer);
+          operationTimer = setInterval(function () {
+            document.getElementById("operationElapsed").textContent =
+              "Elapsed time: " + elapsedText(Date.now() - operationStartedAt);
+          }, 1000);
+          window.addEventListener("beforeunload", warnDuringOperation);
+          resize(true);
+          return true;
+        }
+        function updateOperation(title, message) {
+          document.getElementById("operationTitle").textContent = title;
+          document.getElementById("operationMessage").textContent = message;
+        }
+        function endOperation() {
+          operationInProgress = false;
+          clearInterval(operationTimer);
+          operationTimer = null;
+          window.removeEventListener("beforeunload", warnDuringOperation);
+          document.body.classList.remove("operation-locked");
+          document.getElementById("operationOverlay").classList.add("hidden");
+          resize(true);
+        }
+        function failOperation(error) {
+          operationInProgress = false;
+          clearInterval(operationTimer);
+          operationTimer = null;
+          window.removeEventListener("beforeunload", warnDuringOperation);
+          document.body.classList.remove("operation-locked");
+          var o = document.getElementById("operationOverlay");
+          o.classList.add("operation-error");
+          document.getElementById("operationTitle").textContent = "Assignment update failed";
+          document.getElementById("operationMessage").textContent =
+            error && error.message
+              ? error.message
+              : String(error || "The server did not complete the operation.");
+          document.getElementById("operationNote").textContent =
+            "Refresh the Assignment Board before retrying.";
+          document.getElementById("operationClose").classList.remove("hidden");
+          resize(true);
+        }
+        window.closeOperationError = function () {
+          document.getElementById("operationOverlay").classList.add("hidden");
+          refresh();
+          return false;
+        };
+        function runAssignment(ii, values, title, message) {
+          if (!beginOperation(title, message))
+            return Promise.reject(Error("An assignment operation is already in progress."));
+          return bulk(ii, values)
+            .then(function () {
+              updateOperation("Assignment completed", "Refreshing the Assignment Board...");
+              return refresh(true);
+            })
+            .then(endOperation)
+            .catch(function (error) {
+              failOperation(error);
+              throw error;
+            });
+        }
+        function bulk(ii, values) {
+          return call("/v3/items/fields?atomic=true", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(
+              ii.map(function (id) {
+                return {
+                  itemId: +id,
+                  fieldValues: [{ fieldId: 5, type: "ChoiceFieldValue", values: values }],
+                };
+              }),
+            ),
+          });
+        }
+        function refresh(internal) {
+          if (operationInProgress && !internal) return Promise.resolve(false);
+          selection = {};
+          userP = null;
+          allowed = {};
+          closeMenus();
+          show('<div class="loading">Refreshing assignments...</div>');
+          return new Promise(function (resolve, reject) {
+            setTimeout(function () {
+              boot(pid).then(resolve).catch(reject);
+            }, 120);
+          });
+        }
+        window.assignMe = function () {
+          if (operationInProgress) return false;
+          var ii = ids();
+          closeMenus();
+          me()
+            .then(function (u) {
+              return runAssignment(
+                ii,
+                [{ id: +u.id, type: "UserReference" }],
+                "Updating assignments",
+                "Assigning " +
+                  ii.length +
+                  " Test Run" +
+                  (ii.length === 1 ? "" : "s") +
+                  " to the current user...",
+              );
+            })
+            .catch(function () {});
+          return false;
+        };
+        window.clearAssigned = function () {
+          if (operationInProgress) return false;
+          pendingClearIds = assignedIds();
+          closeMenus();
+          if (!pendingClearIds.length) return false;
+          document.getElementById("clearText").textContent =
+            "This will remove all assignment values from " +
+            pendingClearIds.length +
+            " selected Test Run" +
+            (pendingClearIds.length === 1 ? "" : "s") +
+            ".";
+          document.getElementById("clearDlg").classList.remove("hidden");
+          resize(true);
+          document.getElementById("clearConfirm").focus();
+          return false;
+        };
+        window.closeClearConfirmation = function () {
+          if (operationInProgress) return false;
+          pendingClearIds = [];
+          document.getElementById("clearDlg").classList.add("hidden");
+          resize(true);
+          return false;
+        };
+        window.confirmClearAssignments = function () {
+          if (operationInProgress || !pendingClearIds.length) return false;
+          var ii = pendingClearIds.slice();
+          document.getElementById("clearDlg").classList.add("hidden");
+          runAssignment(
+            ii,
+            [],
+            "Clearing assignments",
+            "Removing assignment values from " +
+              ii.length +
+              " Test Run" +
+              (ii.length === 1 ? "" : "s") +
+              "...",
+          ).catch(function () {});
+          return false;
+        };
+        function rk(x) {
+          return String(x.type) + ":" + x.id;
+        }
+        function label(t) {
+          return t === "UserReference"
+            ? "User"
+            : t === "RoleReference"
+              ? "Role"
+              : t === "UserGroupReference"
+                ? "Group"
+                : t;
+        }
+        function match(x, q) {
+          q = q.toLowerCase();
+          return (
+            !q ||
+            String(x.name || "")
+              .toLowerCase()
+              .includes(q) ||
+            String(x.displayName || "")
+              .toLowerCase()
+              .includes(q) ||
+            String(x.email || "")
+              .toLowerCase()
+              .includes(q)
+          );
+        }
+        function find(k) {
+          return opts.find(function (x) {
+            return rk(x) === k;
+          });
+        }
+        function op(x, right) {
+          var k = rk(x),
+            on = (right ? cSel : aSel)[k];
+          return (
+            '<div class="opt ' +
+            (on ? "on" : "") +
+            '" data-k="' +
+            esc(k) +
+            '" onclick="pick(this,' +
+            right +
+            ')" ondblclick="' +
+            (right ? "removeOne" : "addOne") +
+            "('" +
+            esc(k) +
+            "')\"><div><div>" +
+            esc(x.displayName || x.name) +
+            "</div>" +
+            (x.email ? '<div class="extra">' + esc(x.email) + "</div>" : "") +
+            '</div><span class="tag">' +
+            label(x.type) +
+            "</span></div>"
+          );
+        }
+        function groups(list, right) {
+          var h = "";
+          [
+            ["UserReference", "Users"],
+            ["RoleReference", "Roles"],
+            ["UserGroupReference", "Groups"],
+          ].forEach(function (g) {
+            var a = list.filter(function (x) {
+              return x.type === g[0];
+            });
+            if (a.length) {
+              h += '<div class="gt">' + g[1] + "</div>";
+              a.forEach(function (x) {
+                h += op(x, right);
+              });
+            }
+          });
+          return h || '<div class="empty">No matching options.</div>';
+        }
+        window.drawPicker = function () {
+          var q = document.getElementById("q").value || "",
+            av = opts.filter(function (x) {
+              return !chosen[rk(x)] && match(x, q);
+            }),
+            ch = Object.keys(chosen)
+              .map(function (k) {
+                return chosen[k];
+              })
+              .filter(function (x) {
+                return match(x, q);
+              });
+          document.getElementById("av").innerHTML = groups(av, false);
+          document.getElementById("ch").innerHTML = groups(ch, true);
+          document.getElementById("cnt").textContent = "(" + Object.keys(chosen).length + ")";
+          document.getElementById("ok").disabled = !Object.keys(chosen).length;
+          schedule();
+        };
+        window.pick = function (el, right) {
+          var m = right ? cSel : aSel;
+          m[el.dataset.k] = !m[el.dataset.k];
+          el.classList.toggle("on", m[el.dataset.k]);
+          return false;
+        };
+        window.addOne = function (k) {
+          var x = find(k);
+          if (x) chosen[k] = x;
+          delete aSel[k];
+          drawPicker();
+          return false;
+        };
+        window.removeOne = function (k) {
+          delete chosen[k];
+          delete cSel[k];
+          drawPicker();
+          return false;
+        };
+        window.addMany = function () {
+          Object.keys(aSel).forEach(function (k) {
+            if (aSel[k]) {
+              var x = find(k);
+              if (x) chosen[k] = x;
+            }
+          });
+          aSel = {};
+          drawPicker();
+          return false;
+        };
+        window.removeMany = function () {
+          Object.keys(cSel).forEach(function (k) {
+            if (cSel[k]) delete chosen[k];
+          });
+          cSel = {};
+          drawPicker();
+          return false;
+        };
+        window.openOthers = function () {
+          if (operationInProgress) return false;
+          targets = ids();
+          if (!targets.length) return false;
+          closeMenus();
+          opts = [];
+          chosen = {};
+          aSel = {};
+          cSel = {};
+          var d = document.getElementById("dlg"),
+            s = document.getElementById("ds");
+          d.classList.remove("hidden");
+          s.innerHTML =
+            '<span class="loading-inline"><span class="mini-spinner"></span>Loading valid assignment options...</span>';
+          document.getElementById("q").disabled = true;
+          document.getElementById("ok").disabled = true;
+          resize(true);
+          call("/v3/items/" + targets[0] + "/fields/5/options?page=1&pageSize=500&_t=" + Date.now())
+            .then(function (p) {
+              opts = p.references || [];
+              s.textContent = opts.length + " options for " + targets.length + " Test Run(s).";
+              document.getElementById("q").disabled = false;
+              drawPicker();
+              document.getElementById("q").focus();
+            })
+            .catch(function (x) {
+              s.className = "statusmsg bad";
+              s.textContent = x.message || x;
+            });
+          return false;
+        };
+        window.closeDlg = function () {
+          if (operationInProgress) return false;
+          document.getElementById("dlg").classList.add("hidden");
+          resize(true);
+          return false;
+        };
+        window.assignOthers = function () {
+          if (operationInProgress) return false;
+          var v = Object.keys(chosen).map(function (k) {
+              var x = chosen[k];
+              return { id: +x.id, type: x.type };
+            }),
+            count = targets.length;
+          document.getElementById("dlg").classList.add("hidden");
+          runAssignment(
+            targets,
+            v,
+            "Updating assignments",
+            "Assigning " +
+              v.length +
+              " selected reference" +
+              (v.length === 1 ? "" : "s") +
+              " to " +
+              count +
+              " Test Run" +
+              (count === 1 ? "" : "s") +
+              "...",
+          ).catch(function () {});
+          return false;
+        };
+        function runUrl(c, i) {
+          var idx = Number(c && c.nativeIndex) || Number(i) || 1;
+          return (
+            RUNNER +
+            "?task_id=" +
+            parent.id +
+            "&index=" +
+            idx +
+            "&tracker_id=" +
+            parent.tracker.id +
+            "&strictSingleRunId=" +
+            c.id
+          );
+        }
+        window.runOne = function (u) {
+          if (operationInProgress) return false;
+          var p = window.open(
+            "about:blank",
+            "cbTestRunner_" + Date.now(),
+            "width=1400,height=900,resizable=yes,scrollbars=yes",
+          );
+          if (!p) return false;
+          try {
+            p.opener = null;
+          } catch (_) {}
+          try {
+            p.location.replace(u);
+          } catch (e) {
+            try {
+              p.location.href = u;
+            } catch (_) {}
+          }
+          clearInterval(poll);
+          poll = setInterval(function () {
+            if (p.closed) {
+              clearInterval(poll);
+              setTimeout(refresh, 700);
+            }
+          }, 500);
+          return false;
+        };
+        function direct(c) {
+          return c && +c.id !== +pid && (!c.parent || c.parent.id == null || +c.parent.id === +pid);
+        }
+        function draw() {
+          selection = {};
+          var rows = filtered(),
+            h = [
+              '<div class="toolbar"><div><div class="title">Assignment Board</div><div class="meta">Showing ' +
+                rows.length +
+                " of " +
+                all.length +
+                " executable runs · Filter: " +
+                flabel() +
+                " · Build " +
+                VER +
+                '</div></div><div class="toolbar-actions"><div class="board-search-wrap"><input id="boardSearch" class="board-search" type="text" value="' +
+                esc(boardQuery) +
+                '" placeholder="Search Test Runs..." aria-label="Search Assignment Board rows" onkeydown="return boardSearchKeydown(event)"><button type="button" class="search-clear" aria-label="Clear search and show all rows" ' +
+                (boardQuery ? "" : "disabled") +
+                ' onclick="return clearBoardSearch()">×</button><button type="button" class="board-search-icon" aria-label="Search Assignment Board" title="Search" onclick="return submitBoardSearch()"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg></button></div><div class="wrap"><button class="btn" onclick="return menu(\'fm\',event)">Filter: ' +
+                flabel() +
+                ' <span class="tri">▼</span></button><div id="fm" class="menu hidden" onclick="event.stopPropagation()"><button class="mi ' +
+                (filter === "ALL" ? "active" : "") +
+                '" onclick="return setFilter(\'ALL\')">All runs</button><button class="mi ' +
+                (filter === "MINE" ? "active" : "") +
+                '" onclick="return setFilter(\'MINE\')">Assigned to me</button><button class="mi ' +
+                (filter === "UNASSIGNED" ? "active" : "") +
+                '" onclick="return setFilter(\'UNASSIGNED\')">Unassigned</button></div></div><div class="wrap"><button id="ab" class="btn primary" disabled onclick="return menu(\'am\',event)">Actions <span class="tri">▼</span></button><div id="am" class="menu hidden" onclick="event.stopPropagation()"><button id="ame" class="mi" disabled onclick="return assignMe()">Assign selected to me</button><button id="aother" class="mi" disabled onclick="return openOthers()">Assign to others...</button><button id="aclear" class="mi" disabled onclick="return clearAssigned()">Clear Assigned To</button><div class="sep"></div><button id="asel" class="mi" disabled onclick="return clearSel()">Clear selection</button></div></div><button class="btn" onclick="refresh()">Refresh</button></div></div>',
+            ];
+          h.push(executionGuidanceHtml());
+          if (!rows.length) {
+            show(h + '<div class="empty">No Test Runs match the filter.</div>');
+            return;
+          }
+          h.push(
+            '<div class="board"><table><thead><tr><th class="sel"><input type="checkbox" aria-label="Select all editable rows" onchange="allRows(this)"></th><th class="run">Run</th><th class="idcol">Test Run ID</th><th class="namecol">Test Run Name</th><th class="casecol">Test Case</th><th class="assigned">Assigned To</th><th class="statuscol">Status</th><th class="resultcol">Result</th><th class="runtime">Run Time</th><th class="closed">Closed At</th></tr></thead><tbody>',
+          );
+          rows.forEach(function (c, i) {
+            var edit = editable(c),
+              can = !parentExecutionBlocked() && runOpen(c) && !!allowed[+c.id],
+              a = ass(c),
+              txt = atxt(c),
+              button = can
+                ? '<a class="btn primary" href="' +
+                  esc(runUrl(c, i + 1)) +
+                  '" onclick="return runOne(this.href)">Run</a>'
+                : '<span class="btn disabled run-disabled" aria-disabled="true" title="' +
+                  esc(runDisabledReason(c)) +
+                  '">Run</span>';
+            h.push(
+              '<tr class="' +
+                (c.parameterized ? "leaf-depth" : "") +
+                '"><td class="sel"><input class="rc" type="checkbox" value="' +
+                c.id +
+                '" data-has="' +
+                (a.length > 0) +
+                '" ' +
+                (edit ? "" : "disabled") +
+                ' onchange="row(this,' +
+                c.id +
+                "," +
+                (a.length > 0) +
+                ')"></td><td>' +
+                button +
+                '</td><td class="idcol">TESTRUN-' +
+                c.id +
+                '</td><td class="namecol"><a class="link" target="_top" href="/cb/item/' +
+                c.id +
+                '">' +
+                esc(c.name) +
+                "</a>" +
+                parameterHtml(c) +
+                '</td><td class="casecol">' +
+                testCaseHtml(c) +
+                '</td><td class="' +
+                (!a.length ? "muted " : "") +
+                'assigned">' +
+                esc(txt) +
+                "</td><td>" +
+                statusBadge(c) +
+                "</td><td>" +
+                resultBadge(c) +
+                '</td><td class="runtime">' +
+                esc(duration(c.spentMillis)) +
+                '</td><td class="closed">' +
+                esc(dateTime(c.closedAt)) +
+                "</td></tr>",
+            );
+          });
+          h.push("</tbody></table></div>");
+          show(h.join(""));
+          actions();
+          requestAnimationFrame(function () {
+            requestAnimationFrame(function () {
+              requestLayoutPass(true);
+            });
+          });
+        }
+        function load() {
+          show('<div class="loading">Loading executable Test Runs through API v3 query...</div>');
+          runItemCache = {};
+          relatedItemCache = {};
+          return Promise.all([loadQueryHierarchy(), auth(pid)])
+            .then(function (x) {
+              allowed = x[1] || {};
+              return mapLimit(x[0], 8, function (item) {
+                return enrichTestCase(item);
+              });
+            })
+            .then(function (leaves) {
+              all = leaves;
+              draw();
+              return true;
+            })
+            .catch(function (x) {
+              show('<div class="error">' + esc(x.message || x) + "</div>");
+              throw x;
+            });
+        }
+        function parentOnlyMessage(item) {
+          var p = item && item.parent;
+          parent = null;
+          pid = null;
+          all = [];
+          allowed = {};
+          selection = {};
+          if (!p || !p.id) {
+            show('<div class="error">Unable to determine the parent Test Run.</div>');
+            return;
+          }
+          var name = p.name || "TESTRUN-" + p.id;
+          show(
+            '<div class="toolbar"><div><div class="title">Assignment Board</div><div class="meta">Parent Test Runs only · Build ' +
+              VER +
+              '</div></div></div><div class="board"><div class="empty"><strong>This Assignment Board is available only on the parent Test Run.</strong><br><br>Open parent: <a class="link" target="_top" href="/cb/item/' +
+              encodeURIComponent(p.id) +
+              '">' +
+              esc(name) +
+              '</a><span class="subid">TESTRUN-' +
+              esc(p.id) +
+              "</span></div></div>",
+          );
+        }
+        function boot(id) {
+          if (id && typeof id === "object") id = id.itemId || id.id;
+          if (!id) return Promise.resolve(false);
+          return call("/v3/items/" + id + "?_t=" + Date.now())
+            .then(function (item) {
+              if (item.parent && item.parent.id) {
+                parentOnlyMessage(item);
+                return false;
+              }
+              parent = item;
+              pid = item.id;
+              return load();
+            })
+            .catch(function (x) {
+              show('<div class="error">' + esc(x.message || x) + "</div>");
+              throw x;
+            });
+        }
+        window.refresh = refresh;
+        var booted = false,
+          currentSelectedItemId = null,
+          selectedItemInitializationTimer = null,
+          retries = [0, 120, 350, 750, 1400, 2400, 4000];
+
+        function stopSelectedItemInitialization() {
+          if (selectedItemInitializationTimer) {
+            clearInterval(selectedItemInitializationTimer);
+            selectedItemInitializationTimer = null;
+          }
+        }
+
+        function resolveSelected() {
+          if (booted) {
+            stopSelectedItemInitialization();
+            return;
+          }
+          api
+            .getSelectedItem()
+            .then(function (x) {
+              var id = x && (x.itemId || x.id);
+              if (id) {
+                booted = true;
+                currentSelectedItemId = Number(id);
+                stopSelectedItemInitialization();
+                boot(id);
+              }
+            })
+            .catch(function () {});
+        }
+
+        retries.forEach(function (ms) {
+          setTimeout(resolveSelected, ms);
+        });
+
+        /* Initialization only. This stops after the first selected item is
+         * resolved and never refreshes board data because of visibility. */
+        selectedItemInitializationTimer = setInterval(resolveSelected, 750);
+
+        api.onSelectedItemChange(function (x) {
+          var id = x && (x.itemId || x.id || x);
+          if (!id) {
+            return;
+          }
+
+          id = Number(id);
+          if (currentSelectedItemId === id) {
+            return;
+          }
+
+          booted = true;
+          currentSelectedItemId = id;
+          stopSelectedItemInitialization();
+          boot(id);
+        });
+
+        window.addEventListener("pageshow", function () {
+          if (!booted) {
+            resolveSelected();
+          }
+          requestLayoutPass(true);
+        });
+
+        /* Layout-only recovery. These handlers never call refresh() or any API.
+         * They only recalculate the table viewport and iframe height after the
+         * host page, Details section, or browser finishes becoming visible. */
+        window.addEventListener("resize", function () {
+          requestLayoutPass(false);
+        });
+        document.addEventListener("visibilitychange", function () {
+          if (!document.hidden) {
+            requestLayoutPass(true);
+          }
+        });
+        if (typeof ResizeObserver === "function") {
+          new ResizeObserver(function () {
+            requestLayoutPass(false);
+          }).observe(document.documentElement);
+        }
+
+        stable();
+      })();
+    </script>
+  </body>
+</html>

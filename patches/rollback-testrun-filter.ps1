@@ -1,7 +1,7 @@
 <#
 =================================================================
- Philips per-assignee test-runner filter (CTW) - rollback script
- Target: Codebeamer 3.0.0.5 at C:\Codebeamer\CB-3.0.0.5
+ Philips Per-Assignee Test Runner Filter + Assignment Board (CTW) - rollback script
+ Target: Codebeamer 3.2.0.2 at C:\Codebeamer\CB-3.2.0.2
  Owner : cb-deployment-engineer (agent-owned)
 
  BEHAVIOUR
@@ -9,31 +9,33 @@
      -IgnoreService bypasses (operator accepts that the JVM keeps
      using the in-memory woven classes until next restart).
    * Optional safety backup (default ON, disable with -NoSafetyBackup):
-     copies the three deployed class files to
+     copies the deployed class files to
        <basename>.preRollback-<YYYY-MM-DD>.bak
      next to them, so an accidental rollback is undoable without
      a rebuild.
-   * Deletes the three shadow class files from
-     tomcat\webapps\cb\WEB-INF\classes\:
-       com\intland\codebeamer\manager\testmanagement\TestRunnerEngine.class
-       com\intland\codebeamer\manager\testmanagement\TestRunnerEngine$AjcClosure1.class
-       com\philips\cb\testrun\AssignedRunFilterAspect.class
+   * Deletes the ten shadow/compiled class files from
+     tomcat\webapps\cb\WEB-INF\classes\ (see $shadowFiles below).
    * Removes the now-empty com\philips\cb\testrun\ directory tree.
-     Does NOT remove com\intland\... directories (they may host
-     other Philips shadows in the future).
+     Does NOT remove com\intland\... directories (they host other
+     Philips customizations' classes, including other packages under
+     com\intland\codebeamer\controller\testmanagement\ that are NOT
+     part of this release - see docs/adr/0003 Consequences/Risks).
    * Clears Jasper compile cache at
      tomcat\work\Catalina\localhost\cb (with retry pattern matching
-     apply script).
+     the apply script).
    * Resets patches\expected-post-apply-hashes.txt to its stub state.
-   * Verifies the three target paths are gone, then prints the
+   * Verifies the ten target paths are gone, then prints the
      start-service reminder.
+   * Does NOT touch the widget frontend (web/) - roll that back
+     separately per DEPLOYMENT-RUNBOOK.md Rollback-Procedure.
 
  ROLLBACK BASELINE
-   The three shadow paths did not exist before Customization B was
-   first deployed. Their absence IS the baseline; no .bak of an
-   earlier state is required to restore stock CB. The webapp
-   classloader will resolve TestRunnerEngine from cb-3.0.0.5.jar
-   again as soon as Tomcat restarts.
+   These shadow paths did not exist before this customization was first
+   deployed. Their absence IS the baseline; no .bak of an earlier state
+   is required to restore stock CB. The webapp classloader will resolve
+   TestRun from cb-3.2.0.2.jar again, and PhilipsAuthorizedChildrenController
+   / PhilipsCurrentUserController will no longer be registered, as soon as
+   Tomcat restarts.
 
  USAGE
    PS> .\patches\rollback-testrun-filter.ps1
@@ -62,21 +64,28 @@ Set-StrictMode -Version Latest
 $scriptDir    = Split-Path -Parent $MyInvocation.MyCommand.Path
 $postHashFile = Join-Path $scriptDir 'expected-post-apply-hashes.txt'
 
-$cbRoot      = 'C:\Codebeamer\CB-3.0.0.5'
+$cbRoot      = 'C:\Codebeamer\CB-3.2.0.2'
 $cbWebapp    = Join-Path $cbRoot 'tomcat\webapps\cb'
 $cbClasses   = Join-Path $cbWebapp 'WEB-INF\classes'
 $jasperDir   = Join-Path $cbRoot 'tomcat\work\Catalina\localhost\cb'
 $today       = Get-Date -Format 'yyyy-MM-dd'
 
-# v2.1 deploys two shadow classes (engine + aspect); the inlined advice produces
-# no TestRunnerEngine$AjcClosure1.class. If a future build emits one, add it here.
 $shadowFiles = @(
-    'com\intland\codebeamer\manager\testmanagement\TestRunnerEngine.class',
-    'com\philips\cb\testrun\AssignedRunFilterAspect.class'
+    'com\intland\codebeamer\manager\testmanagement\TestRun.class',
+    'com\philips\cb\testrun\AssignedRunFilterAspect.class',
+    'com\philips\cb\testrun\SingleRunFilterAspect.class',
+    'com\philips\cb\testrun\SingleRunFilterAspect$StrictRunScope.class',
+    'com\philips\cb\testrun\SingleRunFilterAspect$StrictRunSelection.class',
+    'com\philips\cb\testrun\EffectiveAssignmentAuthorizationService.class',
+    'com\philips\cb\testrun\EffectiveAssignmentAuthorizationService$AssignmentAuthorizationContext.class',
+    'com\philips\cb\testrun\EffectiveAssignmentAuthorizationService$RoleMembershipKey.class',
+    'com\intland\codebeamer\controller\testmanagement\PhilipsAuthorizedChildrenController.class',
+    'com\intland\codebeamer\controller\testmanagement\PhilipsCurrentUserController.class'
 )
-# We only own the com\philips\cb\testrun\ tree (Customization B
-# package). Removing the com\intland\... directories would be
-# presumptuous - other Philips customizations may place shadows there.
+# We only own these specific files. Removing the shared com\intland\... package
+# directories would be presumptuous - other Philips customizations (and the
+# unused "Phase 1 Assignment Board" classes, intentionally not part of this
+# release) may place other classes in the same directories.
 $philipsOwnedDirs = @(
     'com\philips\cb\testrun',
     'com\philips\cb',
@@ -108,7 +117,7 @@ function Clear-JasperWithRetry {
 }
 
 # ---------- start --------------------------------------------------
-Write-Info "Philips per-assignee test-runner filter rollback script"
+Write-Info "Philips Per-Assignee Test Runner Filter + Assignment Board rollback script (v18.4.4)"
 if ($DryRun) { Write-Warn2 "DRY-RUN MODE - no files will be modified." }
 
 # ---------- pre-flight: service must be stopped --------------------
@@ -135,7 +144,7 @@ if ($present.Count -eq 0) {
     Write-Ok "All shadow paths are already absent. Nothing to roll back."
     if ((Test-Path -LiteralPath $postHashFile) -and -not $DryRun) {
         $stub = @(
-            '# Philips per-assignee test-runner filter (CTW) - expected post-apply SHA-256',
+            '# Philips Per-Assignee Test Runner Filter + Assignment Board (CTW) - expected post-apply SHA-256',
             '# Populated by patches\apply-testrun-filter.ps1 on first successful run.',
             '# Format: <basename> <sha256>',
             '# Algorithm: SHA-256'
@@ -161,7 +170,7 @@ if (-not $NoSafetyBackup) {
     Write-Warn2 "Skipping safety backup (per -NoSafetyBackup)."
 }
 
-# ---------- delete the three shadow class files -------------------
+# ---------- delete the shadow class files -------------------------
 Write-Info "Removing shadow class files ..."
 foreach ($rel in $shadowFiles) {
     $lp = Join-Path $cbClasses $rel
@@ -208,7 +217,7 @@ Write-Ok "Verified: all shadow paths absent."
 # ---------- reset expected-post-apply-hashes.txt stub -------------
 if (-not $DryRun) {
     $stub = @(
-        '# Philips per-assignee test-runner filter (CTW) - expected post-apply SHA-256',
+        '# Philips Per-Assignee Test Runner Filter + Assignment Board (CTW) - expected post-apply SHA-256',
         '# Populated by patches\apply-testrun-filter.ps1 on first successful run.',
         '# Format: <basename> <sha256>',
         '# Algorithm: SHA-256'
@@ -220,10 +229,15 @@ if (-not $DryRun) {
 # ---------- final notes -------------------------------------------
 Write-Host ""
 Write-Ok "================================================================="
-Write-Ok " Rollback complete. Stock TestRunnerEngine will resume from cb-3.0.0.5.jar."
+Write-Ok " Rollback complete. Stock TestRun will resume from cb-3.2.0.2.jar;"
+Write-Ok " PhilipsAuthorizedChildrenController/PhilipsCurrentUserController"
+Write-Ok " will no longer be registered."
 Write-Ok "================================================================="
 Write-Host ""
 Write-Warn2 "Start the service to load stock behaviour:"
 Write-Warn2 "    net start codebeamer"
+Write-Host ""
+Write-Warn2 "This script does NOT roll back the widget frontend (web/). See"
+Write-Warn2 "DEPLOYMENT-RUNBOOK.md Rollback-Procedure if the HTML/descriptor changed too."
 Write-Host ""
 exit 0

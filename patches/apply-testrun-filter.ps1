@@ -1,36 +1,41 @@
 <#
 =================================================================
- Philips per-assignee test-runner filter (CTW) - apply script
- Target: Codebeamer 3.0.0.5 at C:\Codebeamer\CB-3.0.0.5
+ Philips Per-Assignee Test Runner Filter + Assignment Board (CTW) - apply script
+ Target: Codebeamer 3.2.0.2 at C:\Codebeamer\CB-3.2.0.2
  Mode  : binary class-shadowing via WEB-INF/classes
  Owner : cb-deployment-engineer (agent-owned)
+
+ v18.4.4 — ported from the 3.0.0.5 / TestRunnerEngine release. See
+ ../legacy/3.0.0.5-testrunner-engine/ for that version's apply script, which
+ targets a different weave point and MUST NOT be run against this install.
 
  BEHAVIOUR
    * Pre-flight gate A: codebeamer Windows service must be STOPPED.
      -IgnoreService bypasses (operator accepts the risk that the JVM
      will not see new class files until next restart).
-   * Pre-flight gate B: SHA-256 of the deployed cb-3.0.0.5.jar is
+   * Pre-flight gate B: SHA-256 of the deployed cb-3.2.0.2.jar is
      verified against patches\source-hashes.txt. A mismatch means
      the Codebeamer install has been upgraded since this bundle was
      woven - apply MUST stop and the upgrade SOP in
-     DEPLOYMENT-RUNBOOK.md §Upgrade-SOP must be followed instead.
-   * Idempotency: if all three shadow class files exist with the
+     DEPLOYMENT-RUNBOOK.md Upgrade-SOP must be followed instead.
+   * Idempotency: if all ten shadow class files exist with the
      hashes recorded in patches\expected-post-apply-hashes.txt, the
      script exits 0 with "Already applied".
-   * Partial-apply detection: if some (not all) of the three files
+   * Partial-apply detection: if some (not all) of the ten files
      exist, OR any hash differs from the bundled SHA-256s, the
      script refuses and recommends running rollback first.
-   * Copies the three woven .class files from patches\woven\ into
+   * Copies the ten class files from patches\woven\ into
      tomcat\webapps\cb\WEB-INF\classes\, creating intermediate
      directories if needed.
    * Clears Jasper compile cache at
      tomcat\work\Catalina\localhost\cb (retry up to 5 times if
-     handles aren't released immediately - see DEPLOYMENT-RUNBOOK §Service-control).
-   * Writes the three post-apply SHA-256s into
+     handles aren't released immediately).
+   * Writes the ten post-apply SHA-256s into
      patches\expected-post-apply-hashes.txt for the next idempotency
      check.
    * Prints the rollback one-liner and a reminder to start the
-     service.
+     service. Frontend assets (web/) are NOT touched by this script
+     - deploy them separately per DEPLOYMENT-RUNBOOK.md Frontend-Deployment.
 
  USAGE
    PS> .\patches\apply-testrun-filter.ps1
@@ -62,19 +67,26 @@ $bundleRoot  = Join-Path $scriptDir 'woven'
 $srcHashFile = Join-Path $scriptDir 'source-hashes.txt'
 $postHashFile= Join-Path $scriptDir 'expected-post-apply-hashes.txt'
 
-$cbRoot      = 'C:\Codebeamer\CB-3.0.0.5'
+$cbRoot      = 'C:\Codebeamer\CB-3.2.0.2'
 $cbWebapp    = Join-Path $cbRoot 'tomcat\webapps\cb'
 $cbClasses   = Join-Path $cbWebapp 'WEB-INF\classes'
-$liveCbJar   = Join-Path $cbWebapp 'WEB-INF\lib\cb-3.0.0.5.jar'
+$liveCbJar   = Join-Path $cbWebapp 'WEB-INF\lib\cb-3.2.0.2.jar'
 $jasperDir   = Join-Path $cbRoot 'tomcat\work\Catalina\localhost\cb'
 
-# The woven artefacts (v2.1: two -- engine + aspect). The v2.1 advice body has
-# no lambda, so ajc inlines proceed() and produces NO TestRunnerEngine$AjcClosure1.class.
-# If a future rebuild reintroduces a lambda and emits a closure class, add it back here.
-# Relative path inside both bundle and live tree.
+# The ten woven/compiled artefacts. Relative path inside both bundle and live tree.
+# If a future rebuild of the woven advice reintroduces a lambda, ajc may emit a
+# TestRun$AjcClosure1.class - add it here and to the register in docs/adr/0003 if so.
 $shadowFiles = @(
-    'com\intland\codebeamer\manager\testmanagement\TestRunnerEngine.class',
-    'com\philips\cb\testrun\AssignedRunFilterAspect.class'
+    'com\intland\codebeamer\manager\testmanagement\TestRun.class',
+    'com\philips\cb\testrun\AssignedRunFilterAspect.class',
+    'com\philips\cb\testrun\SingleRunFilterAspect.class',
+    'com\philips\cb\testrun\SingleRunFilterAspect$StrictRunScope.class',
+    'com\philips\cb\testrun\SingleRunFilterAspect$StrictRunSelection.class',
+    'com\philips\cb\testrun\EffectiveAssignmentAuthorizationService.class',
+    'com\philips\cb\testrun\EffectiveAssignmentAuthorizationService$AssignmentAuthorizationContext.class',
+    'com\philips\cb\testrun\EffectiveAssignmentAuthorizationService$RoleMembershipKey.class',
+    'com\intland\codebeamer\controller\testmanagement\PhilipsAuthorizedChildrenController.class',
+    'com\intland\codebeamer\controller\testmanagement\PhilipsCurrentUserController.class'
 )
 
 # ---------- helpers ------------------------------------------------
@@ -121,7 +133,7 @@ function Clear-JasperWithRetry {
 }
 
 # ---------- start --------------------------------------------------
-Write-Info "Philips per-assignee test-runner filter apply script"
+Write-Info "Philips Per-Assignee Test Runner Filter + Assignment Board apply script (v18.4.4)"
 Write-Info "Workspace : $workspace"
 Write-Info "CB root   : $cbRoot"
 if ($DryRun) { Write-Warn2 "DRY-RUN MODE - no files will be written." }
@@ -140,27 +152,27 @@ if ($svc -and $svc.Status -eq 'Running') {
     Write-Ok ("codebeamer service status: " + ($(if ($svc) { $svc.Status } else { 'not registered' })) + " - proceeding.")
 }
 
-# ---------- pre-flight B: stock cb-3.0.0.5.jar SHA-256 -------------
+# ---------- pre-flight B: stock cb-3.2.0.2.jar SHA-256 -------------
 if (-not (Test-Path -LiteralPath $liveCbJar)) {
-    Write-Err "Deployed cb-3.0.0.5.jar not found at $liveCbJar"
+    Write-Err "Deployed cb-3.2.0.2.jar not found at $liveCbJar"
     exit 1
 }
 $srcHashes = Read-HashFile $srcHashFile
-if (-not $srcHashes.ContainsKey('cb-3.0.0.5.jar')) {
-    Write-Err "source-hashes.txt has no entry for cb-3.0.0.5.jar."
+if (-not $srcHashes.ContainsKey('cb-3.2.0.2.jar')) {
+    Write-Err "source-hashes.txt has no entry for cb-3.2.0.2.jar."
     exit 9
 }
-$expectedJarHash = $srcHashes['cb-3.0.0.5.jar']
+$expectedJarHash = $srcHashes['cb-3.2.0.2.jar']
 $actualJarHash   = Get-Sha256 $liveCbJar
 if ($actualJarHash -ne $expectedJarHash) {
-    Write-Err "Stock cb-3.0.0.5.jar SHA-256 MISMATCH:"
+    Write-Err "Stock cb-3.2.0.2.jar SHA-256 MISMATCH:"
     Write-Err "  expected (pinned)  : $expectedJarHash"
     Write-Err "  actual   (deployed): $actualJarHash"
-    Write-Err "Codebeamer has been upgraded since this bundle was woven."
-    Write-Err "STOP. Follow DEPLOYMENT-RUNBOOK.md §Upgrade-SOP to re-weave against the new jar."
+    Write-Err "Codebeamer has been upgraded/patched since this bundle was woven."
+    Write-Err "STOP. Follow DEPLOYMENT-RUNBOOK.md Upgrade-SOP to re-weave against the new jar."
     exit 1
 }
-Write-Ok ("Stock cb-3.0.0.5.jar SHA-256 verified: $actualJarHash")
+Write-Ok ("Stock cb-3.2.0.2.jar SHA-256 verified: $actualJarHash")
 
 # ---------- bundle integrity check --------------------------------
 $bundleHashes = @{}
@@ -215,8 +227,8 @@ if ($allPresent -and -not $matchesPost) {
     }
 }
 
-# ---------- copy the woven class files ----------------------------
-Write-Info "Copying woven class files into WEB-INF/classes ..."
+# ---------- copy the class files -----------------------------------
+Write-Info "Copying class files into WEB-INF/classes ..."
 foreach ($rel in $shadowFiles) {
     $src = Join-Path $bundleRoot $rel
     $dst = Join-Path $cbClasses  $rel
@@ -235,7 +247,7 @@ if (-not $DryRun) { Clear-JasperWithRetry } else { Write-Info "(DRY-RUN) would c
 # ---------- write expected-post-apply-hashes.txt -----------------
 Write-Info "Writing expected-post-apply-hashes.txt ..."
 $hashLines = @(
-    '# Philips per-assignee test-runner filter (CTW) - expected post-apply SHA-256',
+    '# Philips Per-Assignee Test Runner Filter + Assignment Board (CTW) - expected post-apply SHA-256',
     '# Written by apply-testrun-filter.ps1. The next apply uses this file to detect',
     '# half-applied deploys and to enable idempotency.',
     '# Format: <basename> <sha256>',
@@ -262,18 +274,20 @@ if (-not $DryRun) {
 # ---------- success summary --------------------------------------
 Write-Host ""
 Write-Ok "================================================================="
-Write-Ok " Philips per-assignee test-runner filter applied successfully."
+Write-Ok " Philips Per-Assignee Test Runner Filter + Assignment Board applied successfully."
 Write-Ok "================================================================="
 Write-Host ""
 Write-Warn2 "The codebeamer service must be (re)started for the classes to load:"
 Write-Warn2 "    net start codebeamer"
 Write-Host ""
-Write-Warn2 "The filter is ACTIVE as soon as the classes load (Option B - no switch)."
-Write-Warn2 "There is NO JVM property and NO config toggle. To turn it OFF, run the"
-Write-Warn2 "rollback below (removes the shadow classes) and restart."
+Write-Warn2 "The filter is ACTIVE as soon as the classes load. There is NO JVM property"
+Write-Warn2 "and NO config toggle. To turn it OFF, run the rollback below and restart."
 Write-Host ""
 Write-Info "Rollback (delete shadow classes, return to stock):"
 Write-Info "    .\patches\rollback-testrun-filter.ps1"
 Write-Host ""
-Write-Info "Smoke checklist: DEPLOYMENT-RUNBOOK.md §Post-restart-smoke"
+Write-Warn2 "This script does NOT deploy the widget frontend (web/). See"
+Write-Warn2 "DEPLOYMENT-RUNBOOK.md Frontend-Deployment for executeRunWidget.html / extension.json."
+Write-Host ""
+Write-Info "Smoke checklist: DEPLOYMENT-RUNBOOK.md Post-restart-smoke"
 exit 0
