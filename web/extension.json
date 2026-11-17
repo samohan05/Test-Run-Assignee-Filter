@@ -5,7 +5,7 @@
       "externalWidgetConfig": {
         "id": "philips-execute-run-widget",
         "name": "Assignment Board",
-        "viewUrl": "http://localhost:8080/cb/custom/executeRunWidget.html?v=18.4.4-parent-guard-r5.1-20260928",
+        "viewUrl": "http://localhost:8080/cb/custom/executeRunWidget.html?v=18.4.4-parent-guard-r5.2-20261117",
         "iconUrl": "http://localhost:8088/assets/menuitem_submenuindicator.png"
       }
     }

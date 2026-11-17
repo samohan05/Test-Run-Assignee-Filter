@@ -252,7 +252,7 @@ Codebeamer restart on its own.
    browsers and Codebeamer's own widget cache otherwise keep serving the old build.
 6. Clear `externalWidgetExtensionConfigCache` using your site's approved mechanism.
 7. Hard-refresh the browser (or open a private window) and confirm the toolbar shows the
-   intended build marker (`VER` in the HTML, currently `18.4.4-parent-guard-r5.1-20260928`).
+   intended build marker (`VER` in the HTML, currently `18.4.4-parent-guard-r5.2-20261117`).
 
 ---
 

@@ -21,6 +21,12 @@ second, independent security boundary.
 > It has been superseded by this release and is kept for reference under
 > [`legacy/3.0.0.5-testrunner-engine/`](legacy/3.0.0.5-testrunner-engine/).
 
+> **v18.4.5 (widget-only patch):** `executeRunWidget.html` build bumped to
+> `18.4.4-parent-guard-r5.2-20261117`. Fixes `enrichTestCase()`'s Test Case link/ID, which was
+> built from `rev.commonItemId` (the logical item lineage) instead of `rev.id` (the physical,
+> Stream-specific item this Test Run actually references) — could link to the wrong item in a
+> Stream. See [`web/README.md`](web/README.md). No backend/`patches/` change.
+
 ---
 
 ## What's in this release

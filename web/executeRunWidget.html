@@ -850,7 +850,7 @@
       (function () {
         "use strict";
         var ID = "philips-execute-run-widget",
-          VER = "18.4.4-parent-guard-r5.1-20260928",
+          VER = "18.4.4-parent-guard-r5.2-20261117",
           API = "/cb/api",
           RUNNER = "/cb/testset/testRunner.spr";
         var api = new window.CbWidgetApi.WidgetApi(window, ID, "*"),
@@ -1289,7 +1289,14 @@
                   return relatedItem(rev.id).then(function (item) {
                     if (!isTestCaseItem(item)) return null;
                     return {
-                      id: Number(rev.commonItemId || rev.id),
+                      /*
+                       * rev.id is the physical Test Case item referenced by this
+                       * Test Run. In a Stream, this is the Stream-specific item ID.
+                       * rev.commonItemId identifies the logical item lineage and
+                       * must not be used to build the displayed ID or item URL.
+                       */
+                      id: Number(rev.id),
+                      commonItemId: Number(rev.commonItemId || rev.id),
                       revisionItemId: Number(rev.id),
                       name: item.name || "TESTCASE-" + rev.id,
                       version: Number(rev.version) || null,
